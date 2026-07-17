@@ -41,6 +41,14 @@ import { requestAuditLoggerMiddleware } from './middleware/requestAuditLogger.js
 import { organizationRateLimiter } from './middleware/organizationRateLimiter.js';
 import { detectSqlInjection } from './middleware/tenantSecurityMonitor.js';
 
+// Part 45 — enhanced audit analytics, smart rate limiting, tenant security guard
+import auditAnalyticsRoutes from './routes/auditAnalyticsRoutes.js';
+import smartRateLimitRoutes from './routes/smartRateLimitRoutes.js';
+import tenantSecurityRoutes from './routes/tenantSecurityRoutes.js';
+import { enhancedAuditMiddleware } from './middleware/enhancedAuditAnalytics.js';
+import { smartRateLimitMiddleware } from './middleware/smartRateLimiter.js';
+import { tenantSecurityGuardMiddleware } from './middleware/tenantSecurityGuard.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -117,6 +125,11 @@ app.use('/api', requestAuditLoggerMiddleware());
 app.use('/api', organizationRateLimiter());
 app.use('/api', detectSqlInjection());
 
+// Part 45 — enhanced audit analytics, smart rate limiting, tenant security guard
+app.use('/api', enhancedAuditMiddleware({ trackPerformance: true, trackErrors: true }));
+app.use('/api', smartRateLimitMiddleware({ organizationBased: true }));
+app.use('/api', tenantSecurityGuardMiddleware({ detectAnomalies: true }));
+
 // Feature / PR specific routes
 app.use('/auth', authRoutes);
 app.use('/api/v1', v1Routes);
@@ -138,6 +151,11 @@ app.use('/api/certificates', certificateRoutes);
 app.use('/api/cash-flow', cashFlowForecastRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/usage', tenantUsageRoutes);
+
+// Part 45 — enhanced audit analytics, smart rate limiting, tenant security guard
+app.use('/api/audit-analytics', auditAnalyticsRoutes);
+app.use('/api/smart-rate-limit', smartRateLimitRoutes);
+app.use('/api/tenant-security', tenantSecurityRoutes);
 
 // 404 handler
 app.use((req, res) => {
