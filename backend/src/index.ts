@@ -8,6 +8,7 @@ import { scheduleExecutor } from './services/scheduleExecutor.js';
 import { contractEventIndexer } from './services/contractEventIndexer.js';
 import { liquidityAlertChecker } from './services/forecasting/liquidityAlertChecker.js';
 import { scheduleDailyUsageSnapshots, scheduleNightlyIntegrityCheck } from './jobs/part49Jobs.js';
+import { auditAnalyticsService } from './services/auditAnalyticsService.js';
 
 dotenv.config();
 
@@ -39,6 +40,19 @@ server.listen(PORT, () => {
   scheduleDailyUsageSnapshots();
   scheduleNightlyIntegrityCheck();
   logger.info('Part-49 jobs scheduled (usage snapshots + audit integrity)');
+
+  // Part 45 — cleanup expired audit cache every hour
+  setInterval(async () => {
+    try {
+      const deleted = await auditAnalyticsService.cleanupExpiredCache();
+      if (deleted > 0) {
+        logger.info(`Cleaned up ${deleted} expired audit cache entries`);
+      }
+    } catch (error) {
+      logger.error('Failed to cleanup audit cache', { error });
+    }
+  }, 60 * 60 * 1000); // Every hour
+  logger.info('Part-45 audit cache cleanup scheduled');
 });
 
 // Graceful shutdown handling
