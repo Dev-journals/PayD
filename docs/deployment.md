@@ -40,20 +40,27 @@ This guide covers deploying PayD to a Kubernetes cluster using either raw manife
 
 ## Option 1: Using Raw Manifests
 
-### 1. Update Secrets
+### 1. Create Secrets
 
-Edit `k8s/base/backend-secret.yaml` with your actual secrets:
+**Do not edit `k8s/base/backend-secret.yaml` with real values.** That file is
+tracked by git and must only contain placeholders. Instead, create the secret
+imperatively:
 
-```yaml
-stringData:
-  DATABASE_URL: "postgresql://user:password@your-db-host:5432/payd_db"
-  DB_USER: "your_db_user"
-  DB_PASSWORD: "your_db_password"
-  JWT_SECRET: "your_secure_jwt_secret"
-  STELLAR_SECRET_KEY: "your_stellar_secret_key"
-  ANCHOR_API_KEY: "your_anchor_api_key"
-  SDS_API_KEY: "your_sds_api_key"
+```bash
+kubectl create secret generic payd-backend-secrets \
+  --namespace payd \
+  --from-literal=DATABASE_URL="postgresql://user:password@your-db-host:5432/payd_db" \
+  --from-literal=DB_USER="your_db_user" \
+  --from-literal=DB_PASSWORD="your_db_password" \
+  --from-literal=JWT_SECRET="$(openssl rand -hex 32)" \
+  --from-literal=STELLAR_SECRET_KEY="your_stellar_secret_key" \
+  --from-literal=ANCHOR_API_KEY="your_anchor_api_key" \
+  --from-literal=SDS_API_KEY="your_sds_api_key" \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
+
+For production, use the External Secrets Operator to sync from AWS Secrets
+Manager. See [k8s/README.md](../k8s/README.md) for details.
 
 ### 2. Update ConfigMap
 
@@ -346,7 +353,7 @@ kubectl delete -k k8s/base/
 
 ## Security Considerations
 
-1. **Secrets Management**: Use external secret managers (AWS Secrets Manager, HashiCorp Vault) for production
+1. **Secrets Management**: Never commit real secrets to `backend-secret.yaml`. Use `kubectl create secret` from env vars, CI secret injection, or the External Secrets Operator (see [k8s/README.md](../k8s/README.md)). A pre-commit hook and CI check enforce this automatically.
 2. **Network Policies**: Add NetworkPolicy resources to restrict pod-to-pod communication
 3. **Pod Security**: Enable Pod Security Standards/Policies
 4. **RBAC**: Create ServiceAccounts with minimal permissions
