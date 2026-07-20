@@ -4,6 +4,7 @@ use soroban_sdk::{
     contract, contractimpl, contracttype, contracterror, contractevent,
     symbol_short, Address, Env, String, Symbol, token,
 };
+use common::CommonError;
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,16 @@ pub enum ContractError {
     InvalidAmount      = 5,
     NotPending         = 6,
     InvalidFeeRate     = 7,
+}
+
+impl From<CommonError> for ContractError {
+    fn from(e: CommonError) -> Self {
+        match e {
+            CommonError::AlreadyInitialized => ContractError::AlreadyInitialized,
+            CommonError::NotInitialized => ContractError::NotInitialized,
+            CommonError::Unauthorized => ContractError::Unauthorized,
+        }
+    }
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
@@ -95,7 +106,7 @@ impl CrossAssetPaymentContract {
         if fee_rate_bps > MAX_FEE_BPS {
             return Err(ContractError::InvalidFeeRate);
         }
-        Self::require_admin(&env)?;
+        common::require_admin(&env, &DataKey::Admin).map_err(ContractError::from)?;
         env.storage().instance().set(&DataKey::FeeRateBps, &fee_rate_bps);
         Ok(())
     }
@@ -182,7 +193,7 @@ impl CrossAssetPaymentContract {
         payment_id: u64,
         new_status: Symbol,
     ) -> Result<(), ContractError> {
-        Self::require_admin(&env)?;
+        common::require_admin(&env, &DataKey::Admin).map_err(ContractError::from)?;
 
         let mut record: PaymentRecord = env.storage().persistent()
             .get(&DataKey::Payment(payment_id))
@@ -249,15 +260,6 @@ impl CrossAssetPaymentContract {
         env.storage().instance().get(&DataKey::PaymentCount).unwrap_or(0)
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
-
-    fn require_admin(env: &Env) -> Result<Address, ContractError> {
-        let admin: Address = env.storage().instance()
-            .get(&DataKey::Admin)
-            .ok_or(ContractError::NotInitialized)?;
-        admin.require_auth();
-        Ok(admin)
-    }
 }
 
 mod test;

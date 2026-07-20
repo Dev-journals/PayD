@@ -4,6 +4,7 @@ use soroban_sdk::{
     contract, contractimpl, contracttype, contracterror, contractevent,
     Address, Env, Vec, token,
 };
+use common::CommonError;
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,16 @@ pub enum ContractError {
     AmountOverflow     = 7,
     SequenceMismatch   = 8,
     BatchNotFound      = 9,
+}
+
+impl From<CommonError> for ContractError {
+    fn from(e: CommonError) -> Self {
+        match e {
+            CommonError::AlreadyInitialized => ContractError::AlreadyInitialized,
+            CommonError::NotInitialized => ContractError::NotInitialized,
+            CommonError::Unauthorized => ContractError::Unauthorized,
+        }
+    }
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
@@ -97,7 +108,7 @@ impl BulkPaymentContract {
     }
 
     pub fn set_admin(env: Env, new_admin: Address) -> Result<(), ContractError> {
-        Self::require_admin(&env)?;
+        common::require_admin(&env, &DataKey::Admin).map_err(ContractError::from)?;
         env.storage().instance().set(&DataKey::Admin, &new_admin);
         Ok(())
     }
@@ -259,16 +270,6 @@ impl BulkPaymentContract {
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
-
-    fn require_admin(env: &Env) -> Result<(), ContractError> {
-        let admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .ok_or(ContractError::NotInitialized)?;
-        admin.require_auth();
-        Ok(())
-    }
 
     fn check_and_advance_sequence(env: &Env, expected: u64) -> Result<(), ContractError> {
         let current: u64 = env.storage().instance().get(&DataKey::Sequence).unwrap_or(0);

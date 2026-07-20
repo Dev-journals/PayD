@@ -193,6 +193,7 @@ dependencies = [
 name = "bulk_payment"
 version = "0.0.1"
 dependencies = [
+ "common",
  "soroban-sdk",
 ]
 
@@ -260,6 +261,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "common"
+version = "0.0.1"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -295,6 +303,7 @@ dependencies = [
 name = "cross_asset_payment"
 version = "0.0.1"
 dependencies = [
+ "common",
  "soroban-sdk",
  "stellar-access",
  "stellar-macros",
@@ -1006,6 +1015,7 @@ dependencies = [
 name = "revenue_split"
 version = "0.0.1"
 dependencies = [
+ "common",
  "soroban-sdk",
 ]
 

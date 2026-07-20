@@ -1,6 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{contract, contracterror, contractimpl, contracttype, Address, Env, Vec, token};
+use common::CommonError;
 
 #[cfg(test)]
 mod test;
@@ -22,6 +23,16 @@ pub enum ContractError {
     DuplicateRecipient = 5,
     SharesMustSumToTotal = 6,
     InvalidAmount = 7,
+}
+
+impl From<CommonError> for ContractError {
+    fn from(e: CommonError) -> Self {
+        match e {
+            CommonError::AlreadyInitialized => ContractError::AlreadyInitialized,
+            CommonError::NotInitialized => ContractError::NotInitialized,
+            CommonError::Unauthorized => ContractError::Unauthorized,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -56,14 +67,14 @@ impl RevenueSplitContract {
 
     /// Allows the current admin to set a new admin.
     pub fn set_admin(env: Env, new_admin: Address) -> Result<(), ContractError> {
-        Self::require_admin(&env)?;
+        common::require_admin(&env, &DataKey::Admin).map_err(ContractError::from)?;
         env.storage().instance().set(&DataKey::Admin, &new_admin);
         Ok(())
     }
 
     /// Updates the recipient splits dynamically (admin only).
     pub fn update_recipients(env: Env, new_shares: Vec<RecipientShare>) -> Result<(), ContractError> {
-        Self::require_admin(&env)?;
+        common::require_admin(&env, &DataKey::Admin).map_err(ContractError::from)?;
 
         Self::validate_shares(&env, &new_shares)?;
 
@@ -113,18 +124,6 @@ impl RevenueSplitContract {
         }
 
         Ok(())
-    }
-
-    fn require_admin(env: &Env) -> Result<Address, ContractError> {
-        let admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .ok_or(ContractError::NotInitialized)?;
-
-        // require_auth traps on failure; we also convert missing init to a typed error above.
-        admin.require_auth();
-        Ok(admin)
     }
 
     fn validate_shares(env: &Env, shares: &Vec<RecipientShare>) -> Result<(), ContractError> {
