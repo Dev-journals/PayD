@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "contracts/common",
   "contracts/bulk_payment",
   "contracts/revenue_split",
   "contracts/cross_asset_payment",
