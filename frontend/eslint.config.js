@@ -38,5 +38,13 @@ export default tseslint.config(
     rules: {
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
+  },
+  {
+    // Playwright E2E tests: the fixture `use()` callback collides with React's
+    // `use` hook name, so the React-specific rules don't apply here.
+    files: ['e2e/**/*.ts'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+    },
   }
 );
