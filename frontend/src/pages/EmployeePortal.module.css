@@ -583,3 +583,20 @@
   background: var(--accent);
   box-shadow: 0 0 8px var(--accent);
 }
+
+/* ── Cash Out Button ────────────── */
+.cashOutBtn {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cashOutBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.cashOutBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

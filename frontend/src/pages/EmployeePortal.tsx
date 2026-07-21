@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ArrowUpRight,
   RefreshCw,
@@ -12,6 +12,7 @@ import {
   Award,
   Receipt,
   AlertCircle,
+  ArrowDownRight,
 } from 'lucide-react';
 import { useEmployeePortal, EmployeeTransaction } from '../hooks/useEmployeePortal';
 import {
@@ -22,6 +23,7 @@ import {
 } from '../services/currencyConversion';
 import styles from './EmployeePortal.module.css';
 import { useWallet } from '../hooks/useWallet';
+import WithdrawalFlow from '../components/WithdrawalFlow';
 
 /* ── Helper: status badge ────────── */
 function StatusBadge({ status }: { status: EmployeeTransaction['status'] }) {
@@ -84,6 +86,8 @@ const EmployeePortal: React.FC = () => {
     setSearchQuery,
   } = useEmployeePortal();
 
+  const [showWithdrawal, setShowWithdrawal] = useState(false);
+
   const currencies = getSupportedCurrencies();
 
   // Calculate stats
@@ -91,6 +95,10 @@ const EmployeePortal: React.FC = () => {
   const totalTransactions = transactions.length;
   const pendingCount = transactions.filter((t) => t.status === 'pending').length;
   const lastPayment = transactions.find((t) => t.status === 'completed');
+
+  const handleWithdrawalSuccess = () => {
+    void refreshData();
+  };
 
   return (
     <div className="page-fade flex flex-col gap-6 max-w-[1200px] mx-auto w-full">
@@ -266,6 +274,26 @@ const EmployeePortal: React.FC = () => {
           </div>
           <div className={styles.statValue}>{formatCurrency(totalReceived, 'USD')}</div>
           <div className={styles.statLabel}>Total Received</div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div
+            className={styles.statIcon}
+            style={{
+              background: 'rgba(255, 123, 114, 0.1)',
+              border: '1px solid rgba(255, 123, 114, 0.2)',
+            }}
+          >
+            <ArrowDownRight className="w-4 h-4 text-[var(--danger)]" />
+          </div>
+          <button
+            onClick={() => setShowWithdrawal(true)}
+            className="w-full text-left"
+            disabled={!balance?.orgUsd || balance.orgUsd <= 0}
+          >
+            <div className={styles.statValue}>Cash Out</div>
+            <div className={styles.statLabel}>Withdraw to Local Currency</div>
+          </button>
         </div>
 
         <div className={styles.statCard}>
@@ -494,6 +522,17 @@ const EmployeePortal: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ── Withdrawal Flow Modal ────── */}
+      {showWithdrawal && balance && (
+        <WithdrawalFlow
+          balance={balance.orgUsd}
+          exchangeRate={balance.exchangeRate}
+          selectedCurrency={selectedCurrency}
+          onClose={() => setShowWithdrawal(false)}
+          onSuccess={handleWithdrawalSuccess}
+        />
+      )}
     </div>
   );
 };
