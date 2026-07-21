@@ -35,6 +35,12 @@ lerna-debug.log*
 # macOS-specific files
 .DS_Store
 
+# Playwright E2E artifacts
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/blob-report/
+
 # generated contract clients
 packages/*
 # if you have other workspace packages, add them here
