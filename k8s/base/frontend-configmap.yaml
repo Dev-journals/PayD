@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payd-frontend-config
+  labels:
+    app: payd
+    component: frontend
+data:
+  VITE_API_URL: "http://payd-backend:3001"
+  VITE_STELLAR_NETWORK: "TESTNET"
+  VITE_STELLAR_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+  VITE_STELLAR_HORIZON_URL: "https://horizon-testnet.stellar.org"
