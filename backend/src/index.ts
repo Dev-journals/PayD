@@ -9,6 +9,7 @@ import { contractEventIndexer } from './services/contractEventIndexer.js';
 import { liquidityAlertChecker } from './services/forecasting/liquidityAlertChecker.js';
 import { scheduleDailyUsageSnapshots, scheduleNightlyIntegrityCheck } from './jobs/part49Jobs.js';
 import { auditAnalyticsService } from './services/auditAnalyticsService.js';
+import { cleanupExpired as cleanupExpiredIdempotencyKeys } from './services/idempotencyService.js';
 
 dotenv.config();
 
@@ -53,6 +54,16 @@ server.listen(PORT, () => {
     }
   }, 60 * 60 * 1000); // Every hour
   logger.info('Part-45 audit cache cleanup scheduled');
+
+  // Idempotency key cleanup — every hour, remove expired keys
+  setInterval(async () => {
+    try {
+      await cleanupExpiredIdempotencyKeys();
+    } catch (error) {
+      logger.error('Failed to cleanup expired idempotency keys', { error });
+    }
+  }, 60 * 60 * 1000);
+  logger.info('Idempotency key cleanup scheduled');
 });
 
 // Graceful shutdown handling
