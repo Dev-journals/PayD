@@ -1,0 +1,86 @@
+# Production values override for PayD Helm chart
+# Usage: helm install payd charts/payd -f charts/payd/values-production.yaml
+
+backend:
+  replicaCount: 3
+  
+  image:
+    tag: "stable"
+    pullPolicy: Always
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+  
+  config:
+    NODE_ENV: "production"
+    LOG_LEVEL: "warn"
+    ENABLE_CACHING: "true"
+    CACHE_TTL: "7200"
+  
+  secrets:
+    DATABASE_URL: ""  # Set via --set or external secret
+    DB_USER: ""       # Set via --set or external secret
+    DB_PASSWORD: ""   # Set via --set or external secret
+    JWT_SECRET: ""    # Set via --set or external secret
+    STELLAR_SECRET_KEY: ""  # Set via --set or external secret
+    ANCHOR_API_KEY: ""      # Set via --set or external secret
+    SDS_API_KEY: ""         # Set via --set or external secret
+
+frontend:
+  replicaCount: 3
+  
+  image:
+    tag: "stable"
+    pullPolicy: Always
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "200m"
+    limits:
+      memory: "512Mi"
+      cpu: "400m"
+
+ingress:
+  enabled: true
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: payd.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 80
+    - host: api.payd.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: backend
+          port: 3001
+  tls:
+    - secretName: payd-prod-tls
+      hosts:
+        - payd.yourdomain.com
+        - api.payd.yourdomain.com
+
+stellar:
+  network: "MAINNET"
+  passphrase: "Public Global Stellar Network ; September 2015"
+  horizonUrl: "https://horizon.stellar.org"
+  sorobanRpcUrl: "https://soroban-mainnet.stellar.org"
