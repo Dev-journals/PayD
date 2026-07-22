@@ -19,7 +19,17 @@ export interface AnchorInfo {
 export interface WithdrawalTransaction {
   id: string;
   anchorDomain: string;
-  status: 'incomplete' | 'pending_user_transfer' | 'pending_anchor' | 'pending_stellar' | 'pending_external' | 'completed' | 'failed' | 'refunded' | 'expired' | 'error';
+  status:
+    | 'incomplete'
+    | 'pending_user_transfer'
+    | 'pending_anchor'
+    | 'pending_stellar'
+    | 'pending_external'
+    | 'completed'
+    | 'failed'
+    | 'refunded'
+    | 'expired'
+    | 'error';
   amountIn: number;
   assetCode: string;
   amountOut?: number;

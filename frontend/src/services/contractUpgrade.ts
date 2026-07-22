@@ -39,13 +39,7 @@ export interface MigrationStep {
 }
 
 export type UpgradeLogStatus =
-  | 'pending'
-  | 'simulated'
-  | 'confirmed'
-  | 'executing'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
+  'pending' | 'simulated' | 'confirmed' | 'executing' | 'completed' | 'failed' | 'cancelled';
 
 export interface UpgradeSimulationResult {
   success: boolean;

@@ -5,7 +5,8 @@ import withdrawalService, {
   WithdrawalTransaction,
 } from '../services/withdrawal';
 
-export type WithdrawalStep = 'select_anchor' | 'enter_amount' | 'confirm' | 'processing' | 'complete' | 'failed';
+export type WithdrawalStep =
+  'select_anchor' | 'enter_amount' | 'confirm' | 'processing' | 'complete' | 'failed';
 
 export interface WithdrawalState {
   step: WithdrawalStep;
@@ -24,7 +25,10 @@ interface UseWithdrawalReturn {
   setStep: (step: WithdrawalStep) => void;
   selectAnchor: (anchor: AnchorInfo) => void;
   setAmount: (amount: string) => void;
-  initiateWithdrawal: (destinationType: 'bank_account' | 'mobile_money', destinationDetails: Record<string, string>) => Promise<void>;
+  initiateWithdrawal: (
+    destinationType: 'bank_account' | 'mobile_money',
+    destinationDetails: Record<string, string>
+  ) => Promise<void>;
   openInteractiveUrl: () => void;
   pollTransactionStatus: () => Promise<void>;
   cancelWithdrawal: () => Promise<void>;
@@ -107,7 +111,10 @@ export function useWithdrawal(
   );
 
   const initiateWithdrawal = useCallback(
-    async (destinationType: 'bank_account' | 'mobile_money', destinationDetails: Record<string, string>) => {
+    async (
+      destinationType: 'bank_account' | 'mobile_money',
+      destinationDetails: Record<string, string>
+    ) => {
       if (!state.selectedAnchor || !state.amount) {
         setState((prev) => ({ ...prev, error: 'Please select an anchor and enter an amount' }));
         return;

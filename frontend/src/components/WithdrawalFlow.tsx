@@ -99,8 +99,8 @@ const WithdrawalFlow: React.FC<WithdrawalFlowProps> = ({
                       <div>
                         <div className="font-medium">{anchor.name}</div>
                         <div className="text-sm text-[var(--muted)]">
-                          Fee: {anchor.withdrawFee || 'Varies'} · Min: {anchor.withdrawMinAmount || 0}{' '}
-                          {selectedCurrency}
+                          Fee: {anchor.withdrawFee || 'Varies'} · Min:{' '}
+                          {anchor.withdrawMinAmount || 0} {selectedCurrency}
                         </div>
                       </div>
                       <ArrowRight className="w-5 h-5 text-[var(--muted)]" />
@@ -123,9 +123,7 @@ const WithdrawalFlow: React.FC<WithdrawalFlowProps> = ({
               Back
             </button>
 
-            <h3 className="text-lg font-semibold">
-              Withdraw via {state.selectedAnchor?.name}
-            </h3>
+            <h3 className="text-lg font-semibold">Withdraw via {state.selectedAnchor?.name}</h3>
 
             <div>
               <label className="block text-sm text-[var(--muted)] mb-2">Amount (ORGUSD)</label>
@@ -222,7 +220,9 @@ const WithdrawalFlow: React.FC<WithdrawalFlowProps> = ({
 
             <button
               onClick={handleAmountSubmit}
-              disabled={!state.amount || parseFloat(state.amount) <= 0 || parseFloat(state.amount) > balance}
+              disabled={
+                !state.amount || parseFloat(state.amount) <= 0 || parseFloat(state.amount) > balance
+              }
               className="w-full p-3 rounded-lg bg-[var(--accent)] text-[var(--bg)] font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Continue
@@ -246,7 +246,9 @@ const WithdrawalFlow: React.FC<WithdrawalFlowProps> = ({
             <div className="p-4 rounded-xl bg-[var(--surface)] border border-[var(--border)] space-y-3">
               <div className="flex justify-between">
                 <span className="text-[var(--muted)]">Amount</span>
-                <span className="font-medium">{formatCurrency(parseFloat(state.amount), 'USD')}</span>
+                <span className="font-medium">
+                  {formatCurrency(parseFloat(state.amount), 'USD')}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--muted)]">Anchor</span>
@@ -260,9 +262,7 @@ const WithdrawalFlow: React.FC<WithdrawalFlowProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--muted)]">Destination</span>
-                <span className="font-medium capitalize">
-                  {destinationType.replace('_', ' ')}
-                </span>
+                <span className="font-medium capitalize">{destinationType.replace('_', ' ')}</span>
               </div>
             </div>
 

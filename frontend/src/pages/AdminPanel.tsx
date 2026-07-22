@@ -170,8 +170,10 @@ export default function AdminPanel() {
   async function loadClawbackLogs(page: number) {
     setClawbackLogsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/assets/clawback/logs?page=${page}&limit=${LOGS_PER_PAGE}`);
-      const data = await res.json() as { success: boolean; data: ClawbackLog[]; total: number };
+      const res = await fetch(
+        `${API_BASE}/assets/clawback/logs?page=${page}&limit=${LOGS_PER_PAGE}`
+      );
+      const data = (await res.json()) as { success: boolean; data: ClawbackLog[]; total: number };
       if (data.success) {
         setClawbackLogs(data.data);
         setClawbackLogsTotal(data.total);
@@ -294,7 +296,7 @@ export default function AdminPanel() {
           reason: clawbackReason || undefined,
         }),
       });
-      const data = await res.json() as { success: boolean; txHash?: string; error?: string };
+      const data = (await res.json()) as { success: boolean; txHash?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? 'Clawback failed');
       notifySuccess('Clawback Submitted', `Tx: ${data.txHash?.slice(0, 16)}…`);
       setClawbackTarget('');
@@ -782,10 +784,14 @@ export default function AdminPanel() {
             {/* ── Clawback Form ── */}
             <div className="flex flex-col gap-4 sm:gap-6 max-w-2xl">
               <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
-                <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" /> Stellar Asset Clawback
+                <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" /> Stellar Asset
+                Clawback
               </h2>
               <div className="bg-orange-500/10 border border-orange-500/30 p-3 sm:p-4 rounded-xl text-orange-300 text-xs sm:text-sm">
-                <strong>Irreversible:</strong> Clawback burns the specified amount from the target account. Use only for compliance or error-correction. Requires <code className="bg-black/20 px-1 rounded">auth_clawback_enabled</code> on the issuer account.
+                <strong>Irreversible:</strong> Clawback burns the specified amount from the target
+                account. Use only for compliance or error-correction. Requires{' '}
+                <code className="bg-black/20 px-1 rounded">auth_clawback_enabled</code> on the
+                issuer account.
               </div>
 
               <div className="grid gap-4">
@@ -864,7 +870,8 @@ export default function AdminPanel() {
                   {clawbackLogsTotal > 0 && (
                     <span className="text-xs text-muted">
                       {(clawbackLogsPage - 1) * LOGS_PER_PAGE + 1}–
-                      {Math.min(clawbackLogsPage * LOGS_PER_PAGE, clawbackLogsTotal)} of {clawbackLogsTotal}
+                      {Math.min(clawbackLogsPage * LOGS_PER_PAGE, clawbackLogsTotal)} of{' '}
+                      {clawbackLogsTotal}
                     </span>
                   )}
                   <button
@@ -960,7 +967,10 @@ export default function AdminPanel() {
                           <span className="ml-1 font-mono text-orange-400">{log.amount}</span>
                         </div>
                       </div>
-                      <div className="text-xs font-mono text-muted break-all" title={log.transaction_hash}>
+                      <div
+                        className="text-xs font-mono text-muted break-all"
+                        title={log.transaction_hash}
+                      >
                         Tx: {log.transaction_hash.slice(0, 16)}…
                       </div>
                       {log.reason && (
@@ -989,7 +999,9 @@ export default function AdminPanel() {
                     Page {clawbackLogsPage} of {clawbackTotalPages}
                   </span>
                   <button
-                    onClick={() => setClawbackLogsPage((p: number) => Math.min(clawbackTotalPages, p + 1))}
+                    onClick={() =>
+                      setClawbackLogsPage((p: number) => Math.min(clawbackTotalPages, p + 1))
+                    }
                     disabled={clawbackLogsPage === clawbackTotalPages || clawbackLogsLoading}
                     className="flex items-center gap-1 px-4 py-2.5 text-xs border border-hi rounded hover:bg-black/20 disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation min-h-[44px]"
                   >

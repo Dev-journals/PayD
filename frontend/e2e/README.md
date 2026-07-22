@@ -65,7 +65,7 @@ Opt out per file/describe when needed:
 
 ```ts
 test.use({ authenticated: false }); // e.g. the login page
-test.use({ mockNetwork: false });   // to hit routes yourself
+test.use({ mockNetwork: false }); // to hit routes yourself
 ```
 
 To return custom data for a specific endpoint, use `mockRoute` from
