@@ -1,0 +1,16 @@
+{{- if .Values.backend.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "payd.fullname" . }}-backend-config
+  labels:
+    {{- include "payd.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+data:
+  {{- range $key, $value := .Values.backend.config }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+  STELLAR_NETWORK_PASSPHRASE: {{ .Values.stellar.passphrase | quote }}
+  STELLAR_HORIZON_URL: {{ .Values.stellar.horizonUrl | quote }}
+  SOROBAN_RPC_URL: {{ .Values.stellar.sorobanRpcUrl | quote }}
+{{- end }}

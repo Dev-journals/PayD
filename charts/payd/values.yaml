@@ -1,0 +1,135 @@
+# Default values for PayD Helm chart
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Backend configuration
+backend:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: payd-backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3001
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  healthCheck:
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 3001
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 3001
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+  
+  config:
+    PORT: "3001"
+    NODE_ENV: "production"
+    DB_HOST: "postgres"
+    DB_PORT: "5432"
+    DB_NAME: "payd_db"
+    REDIS_URL: "redis://redis:6379"
+    LOG_LEVEL: "info"
+    ENABLE_CACHING: "true"
+    CACHE_TTL: "3600"
+  
+  secrets:
+    DATABASE_URL: ""
+    DB_USER: "payd_user"
+    DB_PASSWORD: ""
+    JWT_SECRET: ""
+    STELLAR_SECRET_KEY: ""
+    ANCHOR_API_KEY: ""
+    SDS_API_KEY: ""
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: payd-frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 80
+  
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+  
+  config:
+    VITE_API_URL: "http://payd-backend:3001"
+    VITE_STELLAR_NETWORK: "TESTNET"
+    VITE_STELLAR_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+    VITE_STELLAR_HORIZON_URL: "https://horizon-testnet.stellar.org"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  hosts:
+    - host: payd.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 80
+    - host: api.payd.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: backend
+          port: 3001
+  tls:
+    - secretName: payd-tls
+      hosts:
+        - payd.example.com
+        - api.payd.example.com
+
+# Stellar network configuration
+stellar:
+  network: "TESTNET"
+  passphrase: "Test SDF Network ; September 2015"
+  horizonUrl: "https://horizon-testnet.stellar.org"
+  sorobanRpcUrl: "https://soroban-testnet.stellar.org"
