@@ -5,6 +5,7 @@ import { StellarService } from './stellarService.js';
 export interface AnchorInfo {
   domain: string;
   webAuthEndpoint?: string;
+  sep24Endpoint?: string;
   sep31Endpoint?: string;
   token?: string;
 }
@@ -29,11 +30,13 @@ export class AnchorService {
 
       // Simple TOML parsing for key endpoints
       const webAuth = toml.match(/WEB_AUTH_ENDPOINT\s*=\s*"([^"]+)"/)?.[1];
+      const sep24 = toml.match(/TRANSFER_SERVER\s*=\s*"([^"]+)"/)?.[1];
       const sep31 = toml.match(/TRANSFER_SERVER_SEP0031\s*=\s*"([^"]+)"/)?.[1];
 
       this.anchorCache[domain] = {
         domain,
         webAuthEndpoint: webAuth,
+        sep24Endpoint: sep24,
         sep31Endpoint: sep31,
       };
 
@@ -111,6 +114,64 @@ export class AnchorService {
   static async getTransaction(domain: string, token: string, id: string): Promise<any> {
     const info = await this.getAnchorInfo(domain);
     const response = await axios.get(`${info.sep31Endpoint}/transactions/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  }
+
+  /**
+   * Fetches SEP-24 /info — supported assets, fields, and fees
+   */
+  static async getSEP24Info(domain: string): Promise<any> {
+    const info = await this.getAnchorInfo(domain);
+    if (!info.sep24Endpoint) throw new Error('Anchor does not support SEP-24');
+
+    const response = await axios.get(`${info.sep24Endpoint}/info`);
+    return response.data;
+  }
+
+  /**
+   * Initiates a SEP-24 interactive withdrawal.
+   * Returns the interactive URL the client opens to complete KYC / delivery details.
+   */
+  static async initiateSEP24Withdrawal(
+    domain: string,
+    token: string,
+    withdrawalData: {
+      asset_code: string;
+      amount: number;
+      account: string;
+      memo?: string;
+      memo_type?: string;
+      [key: string]: unknown;
+    }
+  ): Promise<any> {
+    const info = await this.getAnchorInfo(domain);
+    if (!info.sep24Endpoint) throw new Error('Anchor does not support SEP-24');
+
+    const response = await axios.post(
+      `${info.sep24Endpoint}/transactions/interactive`,
+      withdrawalData,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return response.data;
+  }
+
+  /**
+   * Gets a SEP-24 transaction by id.
+   */
+  static async getSEP24Transaction(domain: string, token: string, id: string): Promise<any> {
+    const info = await this.getAnchorInfo(domain);
+    if (!info.sep24Endpoint) throw new Error('Anchor does not support SEP-24');
+
+    const response = await axios.get(`${info.sep24Endpoint}/transactions`, {
+      params: { id },
       headers: { Authorization: `Bearer ${token}` },
     });
     return response.data;
