@@ -70,6 +70,69 @@ export class PaymentController {
   }
 
   /**
+   * GET /api/payments/sep24/info?domain=...
+   */
+  static async getSEP24Info(req: Request, res: Response) {
+    const { domain } = req.query;
+    if (!domain) return res.status(400).json({ error: 'Domain required' });
+
+    try {
+      const info = await AnchorService.getSEP24Info(domain as string);
+      res.json(info);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * POST /api/payments/sep24/withdraw
+   */
+  static async initiateSEP24Withdrawal(req: Request, res: Response) {
+    const { domain, secretKey, withdrawalData } = req.body;
+
+    if (!domain || !secretKey || !withdrawalData) {
+      return res.status(400).json({ error: 'Missing required fields: domain, secretKey, withdrawalData' });
+    }
+
+    try {
+      const clientKeypair = Keypair.fromSecret(secretKey);
+
+      // 1. Authenticate with the anchor
+      const token = await AnchorService.authenticate(domain as string, clientKeypair);
+
+      // 2. Initiate interactive withdrawal
+      const result = await AnchorService.initiateSEP24Withdrawal(domain as string, token, withdrawalData);
+
+      res.json(result);
+    } catch (error: any) {
+      console.error('SEP-24 Withdrawal Initiation Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
+   * GET /api/payments/sep24/status/:domain/:id
+   */
+  static async getSEP24Status(req: Request, res: Response) {
+    const { domain, id } = req.params;
+    const { secretKey } = req.query;
+
+    if (!domain || !id || !secretKey) {
+      return res.status(400).json({ error: 'Missing required params' });
+    }
+
+    try {
+      const clientKeypair = Keypair.fromSecret(secretKey as string);
+      const token = await AnchorService.authenticate(domain as string, clientKeypair);
+
+      const status = await AnchorService.getSEP24Transaction(domain as string, token, id as string);
+      res.json(status);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  /**
    * GET /api/payments/paths
    * Proxy to Stellar Horizon strictSendPaths
    */
