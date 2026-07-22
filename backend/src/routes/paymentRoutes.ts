@@ -23,7 +23,7 @@ router.post(
   isolateOrganization,
   require2FA,
   idempotencyMiddleware(),
-  PaymentController.initiateSEP31,
+  PaymentController.initiateSEP31
 );
 router.get('/sep31/status/:domain/:id', PaymentController.getStatus);
 router.get('/paths', PaymentController.getCrossAssetPaths);

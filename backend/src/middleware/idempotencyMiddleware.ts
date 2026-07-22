@@ -27,11 +27,7 @@ export interface IdempotencyMiddlewareOptions {
  * req.user.organizationId for tenant scoping).
  */
 export function idempotencyMiddleware(options: IdempotencyMiddlewareOptions = {}) {
-  const {
-    ttlMs = DEFAULT_TTL_MS,
-    methods = ['POST'],
-    validateKey = defaultValidateKey,
-  } = options;
+  const { ttlMs = DEFAULT_TTL_MS, methods = ['POST'], validateKey = defaultValidateKey } = options;
 
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // Only apply to configured HTTP methods
@@ -137,10 +133,7 @@ export function idempotencyMiddleware(options: IdempotencyMiddlewareOptions = {}
  * Call this in route handlers that do the actual work (e.g., after async operations).
  * Returns true if this is a concurrent duplicate and the response was already sent.
  */
-export async function handleConcurrentDuplicate(
-  req: Request,
-  res: Response,
-): Promise<boolean> {
+export async function handleConcurrentDuplicate(req: Request, res: Response): Promise<boolean> {
   const idempotencyKey = (req as any).idempotencyKey;
   if (!idempotencyKey) return false;
 

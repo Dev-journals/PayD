@@ -23,7 +23,7 @@ export interface IdempotencyRecord {
 export async function claimKey(
   organizationId: number,
   idempotencyKey: string,
-  ttlMs: number = DEFAULT_TTL_MS,
+  ttlMs: number = DEFAULT_TTL_MS
 ): Promise<IdempotencyRecord | null> {
   const expiresAt = new Date(Date.now() + ttlMs);
 
@@ -48,7 +48,7 @@ export async function claimKey(
            ELSE $3                             -- new TTL for fresh/expired keys
          END
        RETURNING id, organization_id, idempotency_key, status, response_status, response_body, created_at, expires_at`,
-      [organizationId, idempotencyKey, expiresAt],
+      [organizationId, idempotencyKey, expiresAt]
     );
 
     const row = result.rows[0];
@@ -84,14 +84,11 @@ export async function claimKey(
  * Check if a key is currently locked by another in-flight request.
  * This handles the case where two concurrent requests try to claim the same key.
  */
-export async function isInFlight(
-  organizationId: number,
-  idempotencyKey: string,
-): Promise<boolean> {
+export async function isInFlight(organizationId: number, idempotencyKey: string): Promise<boolean> {
   const result = await query(
     `SELECT status FROM idempotency_keys
      WHERE organization_id = $1 AND idempotency_key = $2 AND expires_at > NOW()`,
-    [organizationId, idempotencyKey],
+    [organizationId, idempotencyKey]
   );
 
   if (result.rows.length === 0) return false;
@@ -105,13 +102,13 @@ export async function completeKey(
   organizationId: number,
   idempotencyKey: string,
   responseStatus: number,
-  responseBody: unknown,
+  responseBody: unknown
 ): Promise<void> {
   await query(
     `UPDATE idempotency_keys
      SET status = 'completed', response_status = $3, response_body = $4
      WHERE organization_id = $1 AND idempotency_key = $2`,
-    [organizationId, idempotencyKey, responseStatus, JSON.stringify(responseBody)],
+    [organizationId, idempotencyKey, responseStatus, JSON.stringify(responseBody)]
   );
 }
 
@@ -122,13 +119,13 @@ export async function failKey(
   organizationId: number,
   idempotencyKey: string,
   responseStatus: number,
-  responseBody: unknown,
+  responseBody: unknown
 ): Promise<void> {
   await query(
     `UPDATE idempotency_keys
      SET status = 'failed', response_status = $3, response_body = $4
      WHERE organization_id = $1 AND idempotency_key = $2`,
-    [organizationId, idempotencyKey, responseStatus, JSON.stringify(responseBody)],
+    [organizationId, idempotencyKey, responseStatus, JSON.stringify(responseBody)]
   );
 }
 
@@ -137,9 +134,7 @@ export async function failKey(
  * Called periodically or on startup.
  */
 export async function cleanupExpired(): Promise<number> {
-  const result = await query(
-    `DELETE FROM idempotency_keys WHERE expires_at < NOW()`,
-  );
+  const result = await query(`DELETE FROM idempotency_keys WHERE expires_at < NOW()`);
   const deleted = result.rowCount ?? 0;
   if (deleted > 0) {
     logger.info(`Cleaned up ${deleted} expired idempotency keys`);

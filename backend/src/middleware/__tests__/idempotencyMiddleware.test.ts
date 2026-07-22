@@ -58,7 +58,11 @@ describe('idempotencyMiddleware', () => {
       const middleware = idempotencyMiddleware();
       await middleware(mockRequest as Request, mockResponse as Response, nextFunction);
 
-      expect(idempotencyService.claimKey).toHaveBeenCalledWith(1, 'test-key-123', expect.any(Number));
+      expect(idempotencyService.claimKey).toHaveBeenCalledWith(
+        1,
+        'test-key-123',
+        expect.any(Number)
+      );
       expect(nextFunction).toHaveBeenCalled();
     });
   });
@@ -300,7 +304,10 @@ describe('handleConcurrentDuplicate', () => {
   });
 
   it('should return false when no idempotency key on request', async () => {
-    const result = await handleConcurrentDuplicate(mockRequest as Request, mockResponse as Response);
+    const result = await handleConcurrentDuplicate(
+      mockRequest as Request,
+      mockResponse as Response
+    );
     expect(result).toBe(false);
   });
 
@@ -308,7 +315,10 @@ describe('handleConcurrentDuplicate', () => {
     (mockRequest as any).idempotencyKey = 'test-key';
     (idempotencyService.isInFlight as jest.Mock).mockResolvedValue(false);
 
-    const result = await handleConcurrentDuplicate(mockRequest as Request, mockResponse as Response);
+    const result = await handleConcurrentDuplicate(
+      mockRequest as Request,
+      mockResponse as Response
+    );
 
     expect(result).toBe(false);
     expect(idempotencyService.isInFlight).toHaveBeenCalledWith(1, 'test-key');
@@ -318,12 +328,13 @@ describe('handleConcurrentDuplicate', () => {
     (mockRequest as any).idempotencyKey = 'test-key';
     (idempotencyService.isInFlight as jest.Mock).mockResolvedValue(true);
 
-    const result = await handleConcurrentDuplicate(mockRequest as Request, mockResponse as Response);
+    const result = await handleConcurrentDuplicate(
+      mockRequest as Request,
+      mockResponse as Response
+    );
 
     expect(result).toBe(true);
     expect(mockResponse.status).toHaveBeenCalledWith(409);
-    expect(mockResponse.json).toHaveBeenCalledWith(
-      expect.objectContaining({ error: 'Conflict' })
-    );
+    expect(mockResponse.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Conflict' }));
   });
 });

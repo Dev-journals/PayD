@@ -43,26 +43,32 @@ server.listen(PORT, () => {
   logger.info('Part-49 jobs scheduled (usage snapshots + audit integrity)');
 
   // Part 45 — cleanup expired audit cache every hour
-  setInterval(async () => {
-    try {
-      const deleted = await auditAnalyticsService.cleanupExpiredCache();
-      if (deleted > 0) {
-        logger.info(`Cleaned up ${deleted} expired audit cache entries`);
+  setInterval(
+    async () => {
+      try {
+        const deleted = await auditAnalyticsService.cleanupExpiredCache();
+        if (deleted > 0) {
+          logger.info(`Cleaned up ${deleted} expired audit cache entries`);
+        }
+      } catch (error) {
+        logger.error('Failed to cleanup audit cache', { error });
       }
-    } catch (error) {
-      logger.error('Failed to cleanup audit cache', { error });
-    }
-  }, 60 * 60 * 1000); // Every hour
+    },
+    60 * 60 * 1000
+  ); // Every hour
   logger.info('Part-45 audit cache cleanup scheduled');
 
   // Idempotency key cleanup — every hour, remove expired keys
-  setInterval(async () => {
-    try {
-      await cleanupExpiredIdempotencyKeys();
-    } catch (error) {
-      logger.error('Failed to cleanup expired idempotency keys', { error });
-    }
-  }, 60 * 60 * 1000);
+  setInterval(
+    async () => {
+      try {
+        await cleanupExpiredIdempotencyKeys();
+      } catch (error) {
+        logger.error('Failed to cleanup expired idempotency keys', { error });
+      }
+    },
+    60 * 60 * 1000
+  );
   logger.info('Idempotency key cleanup scheduled');
 });
 

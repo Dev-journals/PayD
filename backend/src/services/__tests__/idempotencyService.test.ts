@@ -1,4 +1,10 @@
-import { claimKey, completeKey, failKey, isInFlight, cleanupExpired } from '../idempotencyService.js';
+import {
+  claimKey,
+  completeKey,
+  failKey,
+  isInFlight,
+  cleanupExpired,
+} from '../idempotencyService.js';
 import { query } from '../../config/database.js';
 
 jest.mock('../../config/database.js');
@@ -12,40 +18,45 @@ describe('idempotencyService', () => {
   describe('claimKey', () => {
     it('should insert a new key with in_progress status', async () => {
       (query as jest.Mock).mockResolvedValue({
-        rows: [{
-          id: 1,
-          organization_id: 1,
-          idempotency_key: 'key-1',
-          status: 'in_progress',
-          response_status: null,
-          response_body: null,
-          created_at: new Date(),
-          expires_at: new Date(),
-        }],
+        rows: [
+          {
+            id: 1,
+            organization_id: 1,
+            idempotency_key: 'key-1',
+            status: 'in_progress',
+            response_status: null,
+            response_body: null,
+            created_at: new Date(),
+            expires_at: new Date(),
+          },
+        ],
       });
 
       const result = await claimKey(1, 'key-1');
 
       expect(result).toBeNull(); // null means "newly created, proceed"
-      expect(query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO idempotency_keys'),
-        [1, 'key-1', expect.any(Date)],
-      );
+      expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO idempotency_keys'), [
+        1,
+        'key-1',
+        expect.any(Date),
+      ]);
     });
 
     it('should return existing completed record for replay', async () => {
       const storedResponse = { success: true };
       (query as jest.Mock).mockResolvedValue({
-        rows: [{
-          id: 1,
-          organization_id: 1,
-          idempotency_key: 'replay-key',
-          status: 'completed',
-          response_status: 201,
-          response_body: storedResponse,
-          created_at: new Date(),
-          expires_at: new Date(Date.now() + 3600000),
-        }],
+        rows: [
+          {
+            id: 1,
+            organization_id: 1,
+            idempotency_key: 'replay-key',
+            status: 'completed',
+            response_status: 201,
+            response_body: storedResponse,
+            created_at: new Date(),
+            expires_at: new Date(Date.now() + 3600000),
+          },
+        ],
       });
 
       const result = await claimKey(1, 'replay-key');
@@ -58,16 +69,18 @@ describe('idempotencyService', () => {
 
     it('should return existing failed record for replay', async () => {
       (query as jest.Mock).mockResolvedValue({
-        rows: [{
-          id: 2,
-          organization_id: 1,
-          idempotency_key: 'fail-key',
-          status: 'failed',
-          response_status: 400,
-          response_body: { error: 'Bad Request' },
-          created_at: new Date(),
-          expires_at: new Date(Date.now() + 3600000),
-        }],
+        rows: [
+          {
+            id: 2,
+            organization_id: 1,
+            idempotency_key: 'fail-key',
+            status: 'failed',
+            response_status: 400,
+            response_body: { error: 'Bad Request' },
+            created_at: new Date(),
+            expires_at: new Date(Date.now() + 3600000),
+          },
+        ],
       });
 
       const result = await claimKey(1, 'fail-key');
@@ -79,16 +92,18 @@ describe('idempotencyService', () => {
     it('should overwrite expired keys', async () => {
       // First call: expired key exists, overwrite it
       (query as jest.Mock).mockResolvedValue({
-        rows: [{
-          id: 3,
-          organization_id: 1,
-          idempotency_key: 'expired-key',
-          status: 'in_progress',
-          response_status: null,
-          response_body: null,
-          created_at: new Date(),
-          expires_at: new Date(Date.now() + 86400000),
-        }],
+        rows: [
+          {
+            id: 3,
+            organization_id: 1,
+            idempotency_key: 'expired-key',
+            status: 'in_progress',
+            response_status: null,
+            response_body: null,
+            created_at: new Date(),
+            expires_at: new Date(Date.now() + 86400000),
+          },
+        ],
       });
 
       const result = await claimKey(1, 'expired-key');
@@ -130,10 +145,12 @@ describe('idempotencyService', () => {
 
       await completeKey(1, 'done-key', 201, { id: 42 });
 
-      expect(query).toHaveBeenCalledWith(
-        expect.stringContaining("SET status = 'completed'"),
-        [1, 'done-key', 201, '{"id":42}'],
-      );
+      expect(query).toHaveBeenCalledWith(expect.stringContaining("SET status = 'completed'"), [
+        1,
+        'done-key',
+        201,
+        '{"id":42}',
+      ]);
     });
   });
 
@@ -143,10 +160,12 @@ describe('idempotencyService', () => {
 
       await failKey(1, 'err-key', 400, { error: 'Bad Request' });
 
-      expect(query).toHaveBeenCalledWith(
-        expect.stringContaining("SET status = 'failed'"),
-        [1, 'err-key', 400, '{"error":"Bad Request"}'],
-      );
+      expect(query).toHaveBeenCalledWith(expect.stringContaining("SET status = 'failed'"), [
+        1,
+        'err-key',
+        400,
+        '{"error":"Bad Request"}',
+      ]);
     });
   });
 
@@ -158,7 +177,7 @@ describe('idempotencyService', () => {
 
       expect(deleted).toBe(5);
       expect(query).toHaveBeenCalledWith(
-        expect.stringContaining('DELETE FROM idempotency_keys WHERE expires_at'),
+        expect.stringContaining('DELETE FROM idempotency_keys WHERE expires_at')
       );
     });
 

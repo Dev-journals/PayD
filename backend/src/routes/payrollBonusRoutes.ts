@@ -14,7 +14,11 @@ router.get('/runs', PayrollBonusController.listPayrollRuns);
 router.get('/runs/:id', PayrollBonusController.getPayrollRun);
 router.patch('/runs/:id/status', PayrollBonusController.updatePayrollRunStatus);
 router.post('/items/bonus', idempotencyMiddleware(), PayrollBonusController.addBonusItem);
-router.post('/items/bonus/batch', idempotencyMiddleware(), PayrollBonusController.addBatchBonusItems);
+router.post(
+  '/items/bonus/batch',
+  idempotencyMiddleware(),
+  PayrollBonusController.addBatchBonusItems
+);
 router.get('/runs/:payrollRunId/items', PayrollBonusController.getPayrollItems);
 router.delete('/items/:itemId', PayrollBonusController.deletePayrollItem);
 router.get('/bonuses/history', PayrollBonusController.getBonusHistory);
