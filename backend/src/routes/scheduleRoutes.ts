@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ScheduleController } from '../controllers/scheduleController.js';
 import { authenticateJWT } from '../middlewares/auth.js';
 import { authorizeRoles, isolateOrganization } from '../middlewares/rbac.js';
+import { idempotencyMiddleware } from '../middleware/idempotencyMiddleware.js';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.use(isolateOrganization);
 router.post(
   '/',
   authorizeRoles('EMPLOYER'),
+  idempotencyMiddleware(),
   ScheduleController.createSchedule
 );
 
@@ -31,11 +33,7 @@ router.post(
  * @query {number} limit - Optional items per page
  * @returns {GetSchedulesResponse} List of schedules with pagination metadata
  */
-router.get(
-  '/',
-  authorizeRoles('EMPLOYER'),
-  ScheduleController.getSchedules
-);
+router.get('/', authorizeRoles('EMPLOYER'), ScheduleController.getSchedules);
 
 /**
  * @route DELETE /api/schedules/:id
@@ -46,10 +44,6 @@ router.get(
  * @returns {404} Schedule not found
  * @returns {403} User doesn't own this schedule
  */
-router.delete(
-  '/:id',
-  authorizeRoles('EMPLOYER'),
-  ScheduleController.deleteSchedule
-);
+router.delete('/:id', authorizeRoles('EMPLOYER'), ScheduleController.deleteSchedule);
 
 export default router;
