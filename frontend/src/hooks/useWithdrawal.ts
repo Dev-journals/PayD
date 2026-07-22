@@ -6,7 +6,12 @@ import withdrawalService, {
 } from '../services/withdrawal';
 
 export type WithdrawalStep =
-  'select_anchor' | 'enter_amount' | 'confirm' | 'processing' | 'complete' | 'failed';
+  | 'select_anchor'
+  | 'enter_amount'
+  | 'confirm'
+  | 'processing'
+  | 'complete'
+  | 'failed';
 
 export interface WithdrawalState {
   step: WithdrawalStep;
