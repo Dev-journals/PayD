@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { ScheduleController } from '../controllers/scheduleController.js';
 import { authenticateJWT } from '../middlewares/auth.js';
 import { authorizeRoles, isolateOrganization } from '../middlewares/rbac.js';
+import { idempotencyMiddleware } from '../middleware/idempotencyMiddleware.js';
 
 const router = Router();
 
@@ -19,6 +20,7 @@ router.use(isolateOrganization);
 router.post(
   '/',
   authorizeRoles('EMPLOYER'),
+  idempotencyMiddleware(),
   ScheduleController.createSchedule
 );
 
