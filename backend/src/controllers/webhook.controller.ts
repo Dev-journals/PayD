@@ -12,7 +12,9 @@ export class WebhookController {
   static async subscribe(req: Request, res: Response) {
     try {
       const validatedData = subscribeSchema.parse(req.body);
+      const organizationId = req.tenantId!;
       const subscription = await WebhookService.subscribe(
+        organizationId,
         validatedData.url,
         validatedData.secret,
         validatedData.events
@@ -28,13 +30,15 @@ export class WebhookController {
   }
 
   static listSubscriptions(req: Request, res: Response) {
-    const subscriptions = WebhookService.listSubscriptions();
+    const organizationId = req.tenantId!;
+    const subscriptions = WebhookService.listSubscriptions(organizationId);
     res.json(subscriptions);
   }
 
   static deleteSubscription(req: Request, res: Response) {
     const { id } = req.params;
-    const success = WebhookService.deleteSubscription(id as string);
+    const organizationId = req.tenantId!;
+    const success = WebhookService.deleteSubscription(id as string, organizationId);
     if (success) {
       res.status(204).send();
       return;
@@ -42,7 +46,6 @@ export class WebhookController {
     res.status(404).json({ error: 'Subscription not found' });
   }
 
-  // Debug endpoint to trigger a mock event
   static async triggerMockEvent(req: Request, res: Response) {
     const { event, payload } = req.body;
     await WebhookService.dispatch(

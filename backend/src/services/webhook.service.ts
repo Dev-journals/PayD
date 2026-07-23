@@ -6,29 +6,38 @@ export interface WebhookSubscription {
   url: string;
   secret: string;
   events: string[];
+  organizationId: number;
 }
 
 // In-memory storage for demonstration (in a real app, this would be a database)
 const subscriptions: WebhookSubscription[] = [];
 
 export class WebhookService {
-  static async subscribe(url: string, secret: string, events: string[]): Promise<WebhookSubscription> {
+  static async subscribe(
+    organizationId: number,
+    url: string,
+    secret: string,
+    events: string[]
+  ): Promise<WebhookSubscription> {
     const subscription: WebhookSubscription = {
       id: Math.random().toString(36).substring(2, 11),
       url,
       secret,
       events,
+      organizationId,
     };
     subscriptions.push(subscription);
     return subscription;
   }
 
-  static listSubscriptions(): WebhookSubscription[] {
-    return subscriptions;
+  static listSubscriptions(organizationId: number): WebhookSubscription[] {
+    return subscriptions.filter((s) => s.organizationId === organizationId);
   }
 
-  static deleteSubscription(id: string): boolean {
-    const index = subscriptions.findIndex((s) => s.id === id);
+  static deleteSubscription(id: string, organizationId: number): boolean {
+    const index = subscriptions.findIndex(
+      (s) => s.id === id && s.organizationId === organizationId
+    );
     if (index !== -1) {
       subscriptions.splice(index, 1);
       return true;
