@@ -31,6 +31,7 @@ import scheduleRoutes from './routes/scheduleRoutes.js';
 import contractEventRoutes from './routes/contractEventRoutes.js';
 import certificateRoutes from './routes/certificateRoutes.js';
 import cashFlowForecastRoutes from './routes/cashFlowForecastRoutes.js';
+import { HealthController } from './controllers/healthController.js';
 
 // Part 49 — admin, audit integrity, per-tenant rate limits, quotas
 import adminRoutes from './routes/adminRoutes.js';
@@ -116,6 +117,10 @@ app.get('/.well-known/stellar.toml', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.sendFile(path.join(__dirname, '../.well-known/stellar.toml'));
 });
+
+// Health check endpoints (public / unauthenticated)
+app.get('/health', HealthController.getHealthStatus);
+app.get('/health/live', HealthController.getLiveness);
 
 // Middleware for versioning
 app.use(apiVersionMiddleware);
