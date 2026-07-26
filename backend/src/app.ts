@@ -11,6 +11,7 @@ import { apiVersionMiddleware } from './middlewares/apiVersionMiddleware.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { auditLoggerMiddleware } from './middleware/auditLogger.js';
 import { tieredOrganizationRateLimit } from './middleware/advancedRateLimiting.js';
+import { rateLimitHeaders } from './middleware/rateLimitHeaders.js';
 import { syncTenantFromUser } from './middleware/tenantContext.js';
 
 // Feature Routes
@@ -57,6 +58,19 @@ const app = express();
 
 // Middleware — request ID first for correlation across all layers
 app.use(requestIdMiddleware);
+
+// Standard X-RateLimit-* response headers on every response, normalized from
+// whichever rate limiter (tiered/advanced, organization, or smart) ran for
+// this request. Mounted first so the res.json/res.send hook is installed
+// before any handler — including error/404 paths — can respond.
+app.use(
+  rateLimitHeaders({
+    routeOverrides: {
+      '/auth': { limit: 20 },
+      '/api/auth': { limit: 20 },
+    },
+  })
+);
 
 // Global security headers via helmet with stricter CSP
 app.use(
