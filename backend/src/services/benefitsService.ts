@@ -1,4 +1,5 @@
 import pool from '../config/database.js';
+import { Money } from '../utils/money.js';
 
 export interface BenefitPlan {
   id: number;
@@ -61,7 +62,7 @@ export interface DraftPayslip {
 }
 
 function round7(n: number): number {
-  return parseFloat(n.toFixed(7));
+  return Money.from(n).toNumber();
 }
 
 export class BenefitsService {
@@ -337,8 +338,11 @@ export class BenefitsService {
       }
 
       const ruleValue = parseFloat(rule.value);
+      const grossMoney = Money.from(gross);
       const amount =
-        rule.type === 'percentage' ? round7(gross * (ruleValue / 100)) : round7(ruleValue);
+        rule.type === 'percentage'
+          ? grossMoney.percentage(ruleValue).toNumber()
+          : Money.from(ruleValue).toNumber();
 
       let destinationWallet = rule.destination_wallet_address;
       if (!destinationWallet) {
@@ -372,8 +376,11 @@ export class BenefitsService {
 
     for (const tax of taxResult.rows as Array<{ id: number; name: string; type: 'percentage' | 'fixed'; value: string }>) {
       const taxValue = parseFloat(tax.value);
+      const grossMoney = Money.from(gross);
       const amount =
-        tax.type === 'percentage' ? round7(gross * (taxValue / 100)) : round7(taxValue);
+        tax.type === 'percentage'
+          ? grossMoney.percentage(taxValue).toNumber()
+          : Money.from(taxValue).toNumber();
 
       const treasuryWallet = await this.resolveTreasuryWalletAddress(input.organization_id, currency);
 
@@ -389,8 +396,12 @@ export class BenefitsService {
       });
     }
 
-    const totalDeductions = round7(lines.reduce((sum, l) => sum + l.amount, 0));
-    const net = Math.max(0, round7(gross - totalDeductions));
+    let totalDeductionsMoney = Money.zero();
+    for (const l of lines) {
+      totalDeductionsMoney = totalDeductionsMoney.add(Money.from(l.amount));
+    }
+    const totalDeductions = totalDeductionsMoney.toNumber();
+    const net = Math.max(0, Money.from(gross).sub(totalDeductionsMoney).toNumber());
 
     return {
       organization_id: input.organization_id,
