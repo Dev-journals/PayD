@@ -9,6 +9,7 @@ jest.mock('../../config/database.js', () => ({
   __esModule: true,
   default: {
     connect: jest.fn(),
+    query: jest.fn(),
   },
 }));
 
@@ -30,7 +31,6 @@ describe('ScheduleExecutor', () => {
   const mockStellarService = StellarService as jest.Mocked<typeof StellarService>;
   const mockScheduleService = scheduleService as jest.Mocked<typeof scheduleService>;
 
-  const mockConnect = jest.fn();
   const mockRelease = jest.fn();
   const mockClientQuery = jest.fn();
 
@@ -43,6 +43,9 @@ describe('ScheduleExecutor', () => {
       query: mockClientQuery,
       release: mockRelease,
     });
+
+    // Default: stale claims cleanup returns 0
+    (mockPool.query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
 
     // Setup environment variables
     process.env.STELLAR_SOURCE_SECRET = 'SXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX';
@@ -96,7 +99,7 @@ describe('ScheduleExecutor', () => {
   });
 
   describe('processDueSchedules', () => {
-    it('should query for due schedules and process them', async () => {
+    it('should claim due schedules with FOR UPDATE SKIP LOCKED and process them', async () => {
       const mockSchedules = [
         {
           id: 1,
@@ -123,7 +126,11 @@ describe('ScheduleExecutor', () => {
         },
       ];
 
-      mockClientQuery.mockResolvedValueOnce({ rows: mockSchedules });
+      // BEGIN, claim UPDATE, COMMIT
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: mockSchedules }) // UPDATE ... FOR UPDATE SKIP LOCKED
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
       // Mock executeSchedule to return success
       jest.spyOn(executor, 'executeSchedule').mockResolvedValue({
@@ -134,11 +141,17 @@ describe('ScheduleExecutor', () => {
       // Mock recordExecution
       jest.spyOn(executor, 'recordExecution').mockResolvedValue();
 
+      // Mock releaseClaim
+      (mockPool.query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
+
       await executor.processDueSchedules();
 
+      expect(mockClientQuery).toHaveBeenCalledWith('BEGIN');
       expect(mockClientQuery).toHaveBeenCalledWith(
-        expect.stringContaining('WHERE next_run_timestamp <= NOW() AND status = \'active\'')
+        expect.stringContaining('FOR UPDATE SKIP LOCKED'),
+        expect.arrayContaining([expect.any(String)]) // podId
       );
+      expect(mockClientQuery).toHaveBeenCalledWith('COMMIT');
       expect(executor.executeSchedule).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 1,
@@ -153,11 +166,16 @@ describe('ScheduleExecutor', () => {
     });
 
     it('should handle empty result set', async () => {
-      mockClientQuery.mockResolvedValueOnce({ rows: [] });
+      // BEGIN, claim UPDATE (empty), COMMIT
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE returns no rows
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
       await executor.processDueSchedules();
 
-      expect(mockClientQuery).toHaveBeenCalled();
+      expect(mockClientQuery).toHaveBeenCalledWith('BEGIN');
+      expect(mockClientQuery).toHaveBeenCalledWith('COMMIT');
       expect(mockRelease).toHaveBeenCalled();
     });
 
@@ -211,13 +229,18 @@ describe('ScheduleExecutor', () => {
         },
       ];
 
-      mockClientQuery.mockResolvedValueOnce({ rows: mockSchedules });
+      // BEGIN, claim UPDATE (2 rows), COMMIT
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: mockSchedules }) // UPDATE returns 2 rows
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
       jest.spyOn(executor, 'executeSchedule').mockResolvedValue({
         success: true,
         transactionHash: 'abc123',
       });
       jest.spyOn(executor, 'recordExecution').mockResolvedValue();
+      (mockPool.query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
 
       await executor.processDueSchedules();
 
@@ -275,7 +298,11 @@ describe('ScheduleExecutor', () => {
         },
       ];
 
-      mockClientQuery.mockResolvedValueOnce({ rows: mockSchedules });
+      // BEGIN, claim UPDATE (2 rows), COMMIT
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: mockSchedules }) // UPDATE returns 2 rows
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
       jest.spyOn(executor, 'executeSchedule')
         .mockRejectedValueOnce(new Error('Execution failed'))
@@ -284,6 +311,7 @@ describe('ScheduleExecutor', () => {
           transactionHash: 'def456',
         });
       jest.spyOn(executor, 'recordExecution').mockResolvedValue();
+      (mockPool.query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
 
       await executor.processDueSchedules();
 
@@ -293,7 +321,10 @@ describe('ScheduleExecutor', () => {
     });
 
     it('should release client even on error', async () => {
-      mockClientQuery.mockRejectedValueOnce(new Error('Database error'));
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockRejectedValueOnce(new Error('Database error')) // UPDATE fails
+        .mockResolvedValueOnce({ rows: [] }); // ROLLBACK
 
       await expect(executor.processDueSchedules()).rejects.toThrow('Database error');
 
@@ -400,6 +431,8 @@ describe('ScheduleExecutor', () => {
       mockClientQuery
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
         .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // INSERT
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE afterExecution
+        .mockResolvedValueOnce({ rows: [] }) // Clear lock
         .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
       mockScheduleService.updateAfterExecution.mockResolvedValue();
@@ -423,6 +456,10 @@ describe('ScheduleExecutor', () => {
         scheduleId,
         executionResult
       );
+      expect(mockClientQuery).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE schedules SET locked_by = NULL'),
+        [scheduleId]
+      );
       expect(mockClientQuery).toHaveBeenCalledWith('COMMIT');
       expect(mockRelease).toHaveBeenCalled();
     });
@@ -439,6 +476,8 @@ describe('ScheduleExecutor', () => {
       mockClientQuery
         .mockResolvedValueOnce({ rows: [] }) // BEGIN
         .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // INSERT
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE afterExecution
+        .mockResolvedValueOnce({ rows: [] }) // Clear lock
         .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
       mockScheduleService.updateAfterExecution.mockResolvedValue();
@@ -494,6 +533,121 @@ describe('ScheduleExecutor', () => {
       ).rejects.toThrow('Connection error');
 
       expect(mockRelease).toHaveBeenCalled();
+    });
+  });
+
+  describe('concurrent pod safety', () => {
+    it('should only allow one pod to claim a schedule when two run concurrently', async () => {
+      const mockSchedule = {
+        id: 42,
+        organizationId: 1,
+        userId: 1,
+        frequency: 'monthly',
+        timeOfDay: '09:00',
+        startDate: '2024-01-01',
+        endDate: null,
+        paymentConfig: {
+          recipients: [
+            {
+              walletAddress: 'GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+              amount: '500.00',
+              assetCode: 'XLM',
+            },
+          ],
+        },
+        nextRunTimestamp: new Date(),
+        lastRunTimestamp: null,
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      let executeCallCount = 0;
+
+      // Pod A: claims the schedule successfully
+      const podA = new ScheduleExecutor();
+      const podAClientQuery = jest.fn();
+      podAClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [mockSchedule] }) // UPDATE claim succeeds
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+      (mockPool.connect as jest.Mock).mockResolvedValueOnce({
+        query: podAClientQuery,
+        release: jest.fn(),
+      });
+      (mockPool.query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 0 });
+
+      jest.spyOn(podA, 'executeSchedule').mockImplementation(async () => {
+        executeCallCount++;
+        return { success: true, transactionHash: 'hash-a' };
+      });
+      jest.spyOn(podA, 'recordExecution').mockResolvedValue();
+
+      // Pod B: tries to claim but FOR UPDATE SKIP LOCKED returns empty
+      const podB = new ScheduleExecutor();
+      const podBClientQuery = jest.fn();
+      podBClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE claim returns 0 rows (skipped)
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+      (mockPool.connect as jest.Mock).mockResolvedValueOnce({
+        query: podBClientQuery,
+        release: jest.fn(),
+      });
+
+      jest.spyOn(podB, 'executeSchedule').mockResolvedValue({
+        success: true,
+        transactionHash: 'hash-b',
+      });
+      jest.spyOn(podB, 'recordExecution').mockResolvedValue();
+
+      // Both pods run concurrently
+      await Promise.all([podA.processDueSchedules(), podB.processDueSchedules()]);
+
+      // Only Pod A should have executed the schedule
+      expect(executeCallCount).toBe(1);
+      expect(podA.executeSchedule).toHaveBeenCalledTimes(1);
+      expect(podB.executeSchedule).not.toHaveBeenCalled();
+    });
+
+    it('should use FOR UPDATE SKIP LOCKED in the claim query', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+      await executor.processDueSchedules();
+
+      const claimCall = mockClientQuery.mock.calls.find(
+        (call: any[]) => typeof call[0] === 'string' && call[0].includes('FOR UPDATE SKIP LOCKED')
+      );
+      expect(claimCall).toBeDefined();
+      expect(claimCall![0]).toContain('locked_by IS NULL');
+      expect(claimCall![1]).toEqual([expect.any(String)]); // podId parameter
+    });
+
+    it('should release stale claims before claiming new ones', async () => {
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [] }) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // UPDATE
+        .mockResolvedValueOnce({ rows: [] }); // COMMIT
+
+      (mockPool.query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 2 });
+
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      await executor.processDueSchedules();
+
+      expect(mockPool.query).toHaveBeenCalledWith(
+        expect.stringContaining('locked_at < NOW()')
+      );
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Released 2 stale claim(s)')
+      );
+
+      consoleSpy.mockRestore();
     });
   });
 });
