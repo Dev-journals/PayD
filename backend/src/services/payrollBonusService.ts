@@ -1,4 +1,5 @@
 import { pool } from '../config/database.js';
+import { Money } from '../utils/money.js';
 import logger from '../utils/logger.js';
 
 export interface PayrollRun {
@@ -214,17 +215,26 @@ export class PayrollBonusService {
     const baseItems = items.filter((item) => item.item_type === 'base');
     const bonusItems = items.filter((item) => item.item_type === 'bonus');
 
+    let baseAmountMoney = Money.zero();
+    for (const item of baseItems) {
+      baseAmountMoney = baseAmountMoney.add(Money.from(item.amount));
+    }
+    let bonusAmountMoney = Money.zero();
+    for (const item of bonusItems) {
+      bonusAmountMoney = bonusAmountMoney.add(Money.from(item.amount));
+    }
+    let totalAmountMoney = Money.zero();
+    for (const item of items) {
+      totalAmountMoney = totalAmountMoney.add(Money.from(item.amount));
+    }
+
     const summary = {
       total_employees: uniqueEmployees.size,
       total_base_items: baseItems.length,
       total_bonus_items: bonusItems.length,
-      total_base_amount: baseItems
-        .reduce((sum, item) => sum + parseFloat(item.amount), 0)
-        .toFixed(7),
-      total_bonus_amount: bonusItems
-        .reduce((sum, item) => sum + parseFloat(item.amount), 0)
-        .toFixed(7),
-      total_amount: items.reduce((sum, item) => sum + parseFloat(item.amount), 0).toFixed(7),
+      total_base_amount: baseAmountMoney.toFixed(7),
+      total_bonus_amount: bonusAmountMoney.toFixed(7),
+      total_amount: totalAmountMoney.toFixed(7),
       by_status: {
         pending: items.filter((item) => item.status === 'pending').length,
         completed: items.filter((item) => item.status === 'completed').length,

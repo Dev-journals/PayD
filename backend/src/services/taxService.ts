@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import pool from '../config/database.js';
+import { Money } from '../utils/money.js';
 import { createTaxComplianceProvider } from './taxCompliance/factory.js';
 import type { TaxComplianceProvider } from './taxCompliance/types.js';
 
@@ -245,15 +246,16 @@ export class TaxService {
   ): Promise<DeductionResult> {
     const rules = await this.getRules(organizationId);
     const deductions: TaxDeduction[] = [];
-    let totalTax = 0;
+    const gross = Money.from(grossAmount);
+    let totalTax = Money.zero();
 
     for (const rule of rules) {
-      let deductedAmount = 0;
+      let deductedAmount = Money.zero();
 
       if (rule.type === 'percentage') {
-        deductedAmount = parseFloat((grossAmount * (Number(rule.value) / 100)).toFixed(7));
+        deductedAmount = gross.percentage(Number(rule.value));
       } else if (rule.type === 'fixed') {
-        deductedAmount = parseFloat(Number(rule.value).toFixed(7));
+        deductedAmount = Money.from(Number(rule.value));
       }
 
       deductions.push({
@@ -261,19 +263,19 @@ export class TaxService {
         rule_name: rule.name,
         type: rule.type,
         rule_value: Number(rule.value),
-        deducted_amount: deductedAmount,
+        deducted_amount: deductedAmount.toNumber(),
       });
 
-      totalTax += deductedAmount;
+      totalTax = totalTax.add(deductedAmount);
     }
 
-    const netAmount = parseFloat((grossAmount - totalTax).toFixed(7));
+    const netAmount = gross.sub(totalTax);
 
     return {
       gross_amount: grossAmount,
       deductions,
-      total_tax: parseFloat(totalTax.toFixed(7)),
-      net_amount: Math.max(0, netAmount),
+      total_tax: totalTax.toNumber(),
+      net_amount: Math.max(0, netAmount.toNumber()),
     };
   }
 
@@ -340,21 +342,27 @@ export class TaxService {
     const entries: TaxReportEntry[] = result.rows.map((row: any) => ({
       rule_name: row.rule_name,
       rule_type: row.rule_type,
-      rule_value: parseFloat(row.rule_value),
-      total_gross: parseFloat(row.total_gross),
-      total_tax: parseFloat(row.total_tax),
-      total_net: parseFloat(row.total_net),
+      rule_value: Money.from(row.rule_value).toNumber(),
+      total_gross: Money.from(row.total_gross).toNumber(),
+      total_tax: Money.from(row.total_tax).toNumber(),
+      total_net: Money.from(row.total_net).toNumber(),
       transaction_count: parseInt(row.transaction_count, 10),
     }));
 
-    const summary = entries.reduce(
-      (acc, entry) => ({
-        total_gross: acc.total_gross + entry.total_gross,
-        total_tax: acc.total_tax + entry.total_tax,
-        total_net: acc.total_net + entry.total_net,
-      }),
-      { total_gross: 0, total_tax: 0, total_net: 0 }
-    );
+    let totalGross = Money.zero();
+    let totalTaxSum = Money.zero();
+    let totalNetSum = Money.zero();
+    for (const entry of entries) {
+      totalGross = totalGross.add(Money.from(entry.total_gross));
+      totalTaxSum = totalTaxSum.add(Money.from(entry.total_tax));
+      totalNetSum = totalNetSum.add(Money.from(entry.total_net));
+    }
+
+    const summary = {
+      total_gross: totalGross.toNumber(),
+      total_tax: totalTaxSum.toNumber(),
+      total_net: totalNetSum.toNumber(),
+    };
 
     return {
       organization_id: organizationId,
