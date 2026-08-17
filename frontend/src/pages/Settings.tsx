@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+import { Webhook } from 'lucide-react';
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
@@ -31,6 +33,21 @@ export default function Settings() {
           </select>
         </div>
       </div>
+
+      <Link
+        to="/settings/webhooks"
+        className="w-full card glass noise p-8 mt-8 flex items-center justify-between gap-4 hover:border-hi transition-all"
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl grid place-items-center bg-accent/10 text-accent">
+            <Webhook className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="font-bold">{t('settings.webhooksLabel')}</p>
+            <p className="text-sm text-muted">{t('settings.webhooksDescription')}</p>
+          </div>
+        </div>
+      </Link>
     </div>
   );
 }
