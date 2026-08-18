@@ -30,24 +30,22 @@ export default function WebhookSettings() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const loadSubscriptions = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await fetchWebhookSubscriptions();
-      setSubscriptions(data);
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error ? loadError.message : t('webhooks.errors.loadFailed')
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const loadSubscriptions = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await fetchWebhookSubscriptions();
+        setSubscriptions(data);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : t('webhooks.errors.loadFailed'));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     void loadSubscriptions();
-  }, []);
+  }, [t]);
 
   const toggleEvent = (eventName: string) => {
     setSelectedEvents((prev) =>
@@ -112,7 +110,12 @@ export default function WebhookSettings() {
         </div>
       </div>
 
-      <form onSubmit={handleCreate} className="w-full card glass noise p-8 mb-8">
+      <form
+        onSubmit={(event) => {
+          void handleCreate(event);
+        }}
+        className="w-full card glass noise p-8 mb-8"
+      >
         <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
           <Plus className="w-5 h-5" />
           {t('webhooks.createTitle')}
@@ -179,7 +182,11 @@ export default function WebhookSettings() {
             disabled={isSubmitting}
             className="self-start px-6 py-3 rounded-xl font-bold bg-accent text-black hover:opacity-90 transition-all disabled:opacity-50 flex items-center gap-2"
           >
-            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            {isSubmitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
             {t('webhooks.createButton')}
           </button>
         </div>
