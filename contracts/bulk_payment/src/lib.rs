@@ -214,7 +214,7 @@ impl BulkPaymentContract {
                     recipient: op.recipient.clone(),
                     amount: op.amount,
                 }
-               ;
+                .publish(&env);
                 continue;
             }
             token_client.transfer(&contract_addr, &op.recipient, &op.amount);
@@ -225,7 +225,7 @@ impl BulkPaymentContract {
                 recipient: op.recipient.clone(),
                 amount: op.amount,
             }
-            ;
+            .publish(&env);
         }
 
         if remaining > 0 {
