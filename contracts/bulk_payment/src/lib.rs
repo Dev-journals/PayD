@@ -158,7 +158,7 @@ impl BulkPaymentContract {
             status: soroban_sdk::symbol_short!("completed"),
         });
 
-        BatchExecutedEvent { batch_id, total_sent: total };
+        BatchExecutedEvent { batch_id, total_sent: total }.publish(&env);
         Ok(batch_id)
     }
 
