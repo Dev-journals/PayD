@@ -15,6 +15,10 @@ dotenv.config();
 
 const server = createServer(app);
 
+// Part-49 job handles — assigned on server start, cleaned up on shutdown
+let usageSnapshotJob: { stop(): void };
+let integrityCheckJob: { stop(): void };
+
 // Initialize Socket.IO
 initializeSocket(server);
 
@@ -38,8 +42,9 @@ server.listen(PORT, () => {
   logger.info('ContractEventIndexer initialized');
 
   // Part 49 — daily quota snapshots + nightly audit-chain integrity
-  scheduleDailyUsageSnapshots();
-  scheduleNightlyIntegrityCheck();
+  // (leader-elected via Postgres advisory lock; cron at midnight UTC)
+  usageSnapshotJob = scheduleDailyUsageSnapshots();
+  integrityCheckJob = scheduleNightlyIntegrityCheck();
   logger.info('Part-49 jobs scheduled (usage snapshots + audit integrity)');
 
   // Part 45 — cleanup expired audit cache every hour
@@ -80,6 +85,10 @@ const shutdown = () => {
   scheduleExecutor.stop();
 
   liquidityAlertChecker.stop();
+
+  // Stop Part-49 cron jobs
+  usageSnapshotJob?.stop();
+  integrityCheckJob?.stop();
 
   // Stop the contract event indexer
   contractEventIndexer.stop();
