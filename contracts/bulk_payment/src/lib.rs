@@ -250,7 +250,7 @@ impl BulkPaymentContract {
             status,
         });
 
-        BatchPartialEvent { batch_id, success_count, fail_count };
+        BatchPartialEvent { batch_id, success_count, fail_count }.publish(&env);
         Ok(batch_id)
     }
 
