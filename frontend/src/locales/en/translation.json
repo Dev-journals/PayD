@@ -138,6 +138,32 @@
     "languageLabel": "Language",
     "languageDescription": "Choose your preferred language for the dashboard.",
     "languageEnglish": "English",
-    "languageSpanish": "Spanish"
+    "languageSpanish": "Spanish",
+    "webhooksLabel": "Webhooks",
+    "webhooksDescription": "Manage webhook subscriptions for your organization."
+  },
+  "webhooks": {
+    "title": "Webhook Subscriptions",
+    "subtitle": "Send real-time event notifications to your own endpoints.",
+    "createTitle": "New Subscription",
+    "urlLabel": "Target URL",
+    "urlPlaceholder": "https://example.com/webhooks/payd",
+    "secretLabel": "Signing Secret",
+    "secretDescription": "Used to sign the payload (HMAC-SHA256). Minimum 16 characters.",
+    "secretPlaceholder": "Enter a secret of at least 16 characters",
+    "eventsLabel": "Events",
+    "eventsDescription": "Select which events to receive. Leave empty to receive all events.",
+    "createButton": "Create Subscription",
+    "listTitle": "Your Subscriptions",
+    "loading": "Loading subscriptions...",
+    "empty": "No webhook subscriptions yet. Create one above to get started.",
+    "deleteButton": "Delete subscription",
+    "errors": {
+      "loadFailed": "Failed to load webhook subscriptions.",
+      "createFailed": "Failed to create webhook subscription.",
+      "deleteFailed": "Failed to delete webhook subscription.",
+      "urlRequired": "Target URL is required.",
+      "secretTooShort": "Secret must be at least 16 characters long."
+    }
   }
 }

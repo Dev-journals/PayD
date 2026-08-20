@@ -138,6 +138,32 @@
     "languageLabel": "Idioma",
     "languageDescription": "Elige tu idioma preferido para el panel.",
     "languageEnglish": "Inglés",
-    "languageSpanish": "Español"
+    "languageSpanish": "Español",
+    "webhooksLabel": "Webhooks",
+    "webhooksDescription": "Administra las suscripciones de webhooks de tu organización."
+  },
+  "webhooks": {
+    "title": "Suscripciones de Webhooks",
+    "subtitle": "Envía notificaciones de eventos en tiempo real a tus propios endpoints.",
+    "createTitle": "Nueva Suscripción",
+    "urlLabel": "URL de destino",
+    "urlPlaceholder": "https://ejemplo.com/webhooks/payd",
+    "secretLabel": "Clave de firma",
+    "secretDescription": "Se usa para firmar el payload (HMAC-SHA256). Mínimo 16 caracteres.",
+    "secretPlaceholder": "Ingresa una clave de al menos 16 caracteres",
+    "eventsLabel": "Eventos",
+    "eventsDescription": "Selecciona qué eventos recibir. Déjalo vacío para recibir todos los eventos.",
+    "createButton": "Crear Suscripción",
+    "listTitle": "Tus Suscripciones",
+    "loading": "Cargando suscripciones...",
+    "empty": "Aún no tienes suscripciones de webhooks. Crea una arriba para comenzar.",
+    "deleteButton": "Eliminar suscripción",
+    "errors": {
+      "loadFailed": "No se pudieron cargar las suscripciones de webhooks.",
+      "createFailed": "No se pudo crear la suscripción de webhook.",
+      "deleteFailed": "No se pudo eliminar la suscripción de webhook.",
+      "urlRequired": "La URL de destino es obligatoria.",
+      "secretTooShort": "La clave debe tener al menos 16 caracteres."
+    }
   }
 }
