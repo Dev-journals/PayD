@@ -1,9 +1,9 @@
 #![cfg(test)]
 use super::*;
 use soroban_sdk::{
-    testutils::Address as _,
+    testutils::{Address as _, Events},
     token::{Client as TokenClient, StellarAssetClient},
-    Address, Env, Vec,
+    Address, Env, FromVal, Symbol, Vec,
 };
 
 // ── Errors map ────────────────────────────────────────────────────────────────
@@ -225,4 +225,62 @@ fn test_partial_batch_empty_panics() {
 fn test_get_batch_not_found_panics() {
     let (_, _, _, client) = setup();
     client.get_batch(&999);
+}
+
+// ── Event emission ────────────────────────────────────────────────────────────
+
+fn has_event(env: &Env, contract_addr: &Address, event_name: &str) -> bool {
+    let target_sym = Symbol::new(env, event_name);
+    env.events().all().iter().any(|(addr, topics, _data)| {
+        if addr != *contract_addr {
+            return false;
+        }
+        topics.iter().any(|t| {
+            let sym = Symbol::from_val(env, &t);
+            sym == target_sym
+        })
+    })
+}
+
+#[test]
+fn test_execute_batch_emits_batch_executed_event() {
+    let (env, sender, token, client) = setup();
+    let r1 = Address::generate(&env);
+
+    let mut payments: Vec<PaymentOp> = Vec::new(&env);
+    payments.push_back(PaymentOp { recipient: r1.clone(), amount: 100 });
+
+    client.execute_batch(&sender, &token, &payments, &client.get_sequence());
+
+    assert!(
+        has_event(&env, &client.address, "batch_executed_event"),
+        "BatchExecutedEvent was not emitted"
+    );
+}
+
+#[test]
+fn test_execute_batch_partial_emits_all_events() {
+    let (env, sender, token, client) = setup_with_sender_balance(500);
+
+    let r1 = Address::generate(&env);
+    let r2 = Address::generate(&env);
+
+    let mut payments: Vec<PaymentOp> = Vec::new(&env);
+    payments.push_back(PaymentOp { recipient: r1.clone(), amount: 500 });
+    payments.push_back(PaymentOp { recipient: r2.clone(), amount: 400 });
+
+    client.execute_batch_partial(&sender, &token, &payments, &client.get_sequence());
+
+    assert!(
+        has_event(&env, &client.address, "payment_sent_event"),
+        "PaymentSentEvent was not emitted"
+    );
+    assert!(
+        has_event(&env, &client.address, "payment_skipped_event"),
+        "PaymentSkippedEvent was not emitted"
+    );
+    assert!(
+        has_event(&env, &client.address, "batch_partial_event"),
+        "BatchPartialEvent was not emitted"
+    );
 }

@@ -158,7 +158,7 @@ impl BulkPaymentContract {
             status: soroban_sdk::symbol_short!("completed"),
         });
 
-        BatchExecutedEvent { batch_id, total_sent: total };
+        BatchExecutedEvent { batch_id, total_sent: total }.publish(&env);
         Ok(batch_id)
     }
 
@@ -214,7 +214,7 @@ impl BulkPaymentContract {
                     recipient: op.recipient.clone(),
                     amount: op.amount,
                 }
-               ;
+                .publish(&env);
                 continue;
             }
             token_client.transfer(&contract_addr, &op.recipient, &op.amount);
@@ -225,7 +225,7 @@ impl BulkPaymentContract {
                 recipient: op.recipient.clone(),
                 amount: op.amount,
             }
-            ;
+            .publish(&env);
         }
 
         if remaining > 0 {
@@ -250,7 +250,7 @@ impl BulkPaymentContract {
             status,
         });
 
-        BatchPartialEvent { batch_id, success_count, fail_count };
+        BatchPartialEvent { batch_id, success_count, fail_count }.publish(&env);
         Ok(batch_id)
     }
 
