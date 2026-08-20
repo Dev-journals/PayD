@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as idempotencyService from '../services/idempotencyService.js';
+import { IdempotencyConflictError } from '../services/idempotencyService.js';
 import logger from '../utils/logger.js';
 
 const IDEMPOTENCY_KEY_HEADER = 'idempotency-key';
@@ -117,12 +118,24 @@ export function idempotencyMiddleware(options: IdempotencyMiddlewareOptions = {}
 
       next();
     } catch (error) {
+      if (error instanceof IdempotencyConflictError) {
+        logger.warn('Concurrent duplicate detected', {
+          organizationId,
+          idempotencyKey,
+        });
+        res.status(409).json({
+          error: 'Conflict',
+          message: 'A request with this Idempotency-Key is already being processed',
+        });
+        return;
+      }
+
       logger.error('Idempotency middleware error', {
         organizationId,
         idempotencyKey,
         error,
       });
-      // On error, proceed without idempotency (fail open)
+      // On other errors, proceed without idempotency (fail open)
       next();
     }
   };
