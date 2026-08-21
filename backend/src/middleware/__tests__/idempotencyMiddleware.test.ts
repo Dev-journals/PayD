@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { idempotencyMiddleware, handleConcurrentDuplicate } from '../idempotencyMiddleware.js';
 import * as idempotencyService from '../../services/idempotencyService.js';
+import { IdempotencyConflictError } from '../../services/idempotencyService.js';
 
 jest.mock('../../services/idempotencyService.js');
 jest.mock('../../utils/logger.js');
@@ -274,7 +275,23 @@ describe('idempotencyMiddleware', () => {
   });
 
   describe('error handling', () => {
-    it('should fail open on service errors', async () => {
+    it('should return 409 on concurrent duplicate (IdempotencyConflictError)', async () => {
+      mockRequest.headers = { 'idempotency-key': 'race-key' };
+      (idempotencyService.claimKey as jest.Mock).mockRejectedValue(
+        new IdempotencyConflictError(1, 'race-key')
+      );
+
+      const middleware = idempotencyMiddleware();
+      await middleware(mockRequest as Request, mockResponse as Response, nextFunction);
+
+      expect(mockResponse.status).toHaveBeenCalledWith(409);
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: 'Conflict' })
+      );
+      expect(nextFunction).not.toHaveBeenCalled();
+    });
+
+    it('should fail open on non-conflict service errors', async () => {
       mockRequest.headers = { 'idempotency-key': 'error-key' };
       (idempotencyService.claimKey as jest.Mock).mockRejectedValue(new Error('DB down'));
 

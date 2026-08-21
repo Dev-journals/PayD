@@ -4,6 +4,7 @@ import {
   failKey,
   isInFlight,
   cleanupExpired,
+  IdempotencyConflictError,
 } from '../idempotencyService.js';
 import { query } from '../../config/database.js';
 
@@ -17,24 +18,13 @@ describe('idempotencyService', () => {
 
   describe('claimKey', () => {
     it('should insert a new key with in_progress status', async () => {
-      (query as jest.Mock).mockResolvedValue({
-        rows: [
-          {
-            id: 1,
-            organization_id: 1,
-            idempotency_key: 'key-1',
-            status: 'in_progress',
-            response_status: null,
-            response_body: null,
-            created_at: new Date(),
-            expires_at: new Date(),
-          },
-        ],
-      });
+      // INSERT succeeds (rowCount 1) — no follow-up queries needed.
+      (query as jest.Mock).mockResolvedValueOnce({ rowCount: 1, rows: [] });
 
       const result = await claimKey(1, 'key-1');
 
-      expect(result).toBeNull(); // null means "newly created, proceed"
+      expect(result).toBeNull();
+      expect(query).toHaveBeenCalledTimes(1);
       expect(query).toHaveBeenCalledWith(expect.stringContaining('INSERT INTO idempotency_keys'), [
         1,
         'key-1',
@@ -44,20 +34,24 @@ describe('idempotencyService', () => {
 
     it('should return existing completed record for replay', async () => {
       const storedResponse = { success: true };
-      (query as jest.Mock).mockResolvedValue({
-        rows: [
-          {
-            id: 1,
-            organization_id: 1,
-            idempotency_key: 'replay-key',
-            status: 'completed',
-            response_status: 201,
-            response_body: storedResponse,
-            created_at: new Date(),
-            expires_at: new Date(Date.now() + 3600000),
-          },
-        ],
-      });
+      // INSERT misses (row exists, not expired). UPDATE misses (not expired). SELECT returns completed.
+      (query as jest.Mock)
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] })
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 1,
+              organization_id: 1,
+              idempotency_key: 'replay-key',
+              status: 'completed',
+              response_status: 201,
+              response_body: storedResponse,
+              created_at: new Date(),
+              expires_at: new Date(Date.now() + 3600000),
+            },
+          ],
+        });
 
       const result = await claimKey(1, 'replay-key');
 
@@ -68,20 +62,23 @@ describe('idempotencyService', () => {
     });
 
     it('should return existing failed record for replay', async () => {
-      (query as jest.Mock).mockResolvedValue({
-        rows: [
-          {
-            id: 2,
-            organization_id: 1,
-            idempotency_key: 'fail-key',
-            status: 'failed',
-            response_status: 400,
-            response_body: { error: 'Bad Request' },
-            created_at: new Date(),
-            expires_at: new Date(Date.now() + 3600000),
-          },
-        ],
-      });
+      (query as jest.Mock)
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] })
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 2,
+              organization_id: 1,
+              idempotency_key: 'fail-key',
+              status: 'failed',
+              response_status: 400,
+              response_body: { error: 'Bad Request' },
+              created_at: new Date(),
+              expires_at: new Date(Date.now() + 3600000),
+            },
+          ],
+        });
 
       const result = await claimKey(1, 'fail-key');
 
@@ -89,26 +86,94 @@ describe('idempotencyService', () => {
       expect(result!.status).toBe('failed');
     });
 
-    it('should overwrite expired keys', async () => {
-      // First call: expired key exists, overwrite it
-      (query as jest.Mock).mockResolvedValue({
-        rows: [
-          {
-            id: 3,
-            organization_id: 1,
-            idempotency_key: 'expired-key',
-            status: 'in_progress',
-            response_status: null,
-            response_body: null,
-            created_at: new Date(),
-            expires_at: new Date(Date.now() + 86400000),
-          },
-        ],
-      });
+    it('should overwrite expired in_progress keys', async () => {
+      // INSERT misses (expired row exists). UPDATE claims the expired in_progress row.
+      (query as jest.Mock)
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] })
+        .mockResolvedValueOnce({ rowCount: 1, rows: [] });
 
       const result = await claimKey(1, 'expired-key');
 
-      expect(result).toBeNull(); // newly claimed
+      expect(result).toBeNull();
+      expect(query).toHaveBeenCalledTimes(2);
+    });
+
+    it('should throw IdempotencyConflictError for concurrent duplicate', async () => {
+      // INSERT misses (row exists). UPDATE misses (not expired). SELECT returns in_progress.
+      (query as jest.Mock)
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] })
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 5,
+              organization_id: 1,
+              idempotency_key: 'racing-key',
+              status: 'in_progress',
+              response_status: null,
+              response_body: null,
+              created_at: new Date(),
+              expires_at: new Date(Date.now() + 3600000),
+            },
+          ],
+        });
+
+      await expect(claimKey(1, 'racing-key')).rejects.toThrow(IdempotencyConflictError);
+    });
+
+    it('should handle two simultaneous claims — one wins, one throws', async () => {
+      // Simulate a race: first call inserts successfully, second call finds in_progress.
+      let callCount = 0;
+      (query as jest.Mock).mockImplementation(async (sql: string) => {
+        callCount++;
+        if (callCount === 1) {
+          // First claim: INSERT succeeds
+          return { rowCount: 1, rows: [] };
+        }
+        if (callCount === 2) {
+          // Second claim: INSERT misses (row now exists)
+          return { rowCount: 0, rows: [] };
+        }
+        if (callCount === 3) {
+          // Second claim: UPDATE misses (not expired)
+          return { rowCount: 0, rows: [] };
+        }
+        if (callCount === 4) {
+          // Second claim: SELECT returns in_progress
+          return {
+            rows: [
+              {
+                id: 10,
+                organization_id: 1,
+                idempotency_key: 'race-key',
+                status: 'in_progress',
+                response_status: null,
+                response_body: null,
+                created_at: new Date(),
+                expires_at: new Date(Date.now() + 3600000),
+              },
+            ],
+          };
+        }
+        return { rowCount: 0, rows: [] };
+      });
+
+      // Fire both claims in parallel.
+      const [result1, result2] = await Promise.allSettled([
+        claimKey(1, 'race-key'),
+        claimKey(1, 'race-key'),
+      ]);
+
+      // Exactly one should succeed (null = "proceed"), the other should throw.
+      const fulfilled = [result1, result2].filter((r) => r.status === 'fulfilled');
+      const rejected = [result1, result2].filter((r) => r.status === 'rejected');
+
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect((fulfilled[0] as PromiseFulfilledResult<any>).value).toBeNull();
+      expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(
+        IdempotencyConflictError
+      );
     });
   });
 
