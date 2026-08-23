@@ -140,7 +140,9 @@
     "languageEnglish": "Inglés",
     "languageSpanish": "Español",
     "webhooksLabel": "Webhooks",
-    "webhooksDescription": "Administra las suscripciones de webhooks de tu organización."
+    "webhooksDescription": "Administra las suscripciones de webhooks de tu organización.",
+    "twoFactorLabel": "Autenticacion de dos factores",
+    "twoFactorDescription": "Protege tu cuenta de administrador con una app de autenticacion TOTP."
   },
   "webhooks": {
     "title": "Suscripciones de Webhooks",
@@ -165,5 +167,40 @@
       "urlRequired": "La URL de destino es obligatoria.",
       "secretTooShort": "La clave debe tener al menos 16 caracteres."
     }
+  },
+  "twoFactor": {
+    "title": "Autenticacion de dos factores",
+    "subtitle": "Las cuentas de administrador pueden exigir un codigo de un solo uso al iniciar sesion.",
+    "loading": "Cargando el estado de dos factores...",
+    "statusEnabled": "La autenticacion de dos factores esta activada",
+    "statusDisabled": "La autenticacion de dos factores esta desactivada",
+    "statusEnabledDescription": "El inicio de sesion requiere un codigo de tu app de autenticacion. Te quedan {{count}} codigos de recuperacion sin usar.",
+    "statusDisabledDescription": "Tu cuenta solo esta protegida por un factor. Activa 2FA para exigir un codigo de un solo uso al iniciar sesion.",
+    "enableTitle": "Activar la autenticacion de dos factores",
+    "enableDescription": "Genera un secreto y escanealo con una app como Google Authenticator, 1Password o Aegis.",
+    "startButton": "Iniciar configuracion",
+    "scanDescription": "Escanea este codigo QR con tu app de autenticacion e introduce el codigo de 6 digitos para terminar.",
+    "qrAlt": "Codigo QR para configurar la autenticacion de dos factores",
+    "manualKeyLabel": "Clave de configuracion manual",
+    "codeLabel": "Codigo de 6 digitos",
+    "enableButton": "Verificar y activar",
+    "recoveryTitle": "Codigos de recuperacion",
+    "recoveryDescription": "Guardalos en un lugar seguro. Cada uno funciona una sola vez si pierdes el acceso a tu app, y solo se muestran ahora.",
+    "copyButton": "Copiar codigos",
+    "copiedButton": "Copiado",
+    "disableTitle": "Desactivar la autenticacion de dos factores",
+    "disableDescription": "Introduce un codigo actual de tu app de autenticacion. Aqui no se aceptan codigos de recuperacion.",
+    "disableButton": "Desactivar 2FA",
+    "errors": {
+      "loadFailed": "No se pudo cargar tu estado de dos factores.",
+      "setupFailed": "No se pudo iniciar la configuracion de dos factores.",
+      "enableFailed": "No se pudo activar la autenticacion de dos factores.",
+      "disableFailed": "No se pudo desactivar la autenticacion de dos factores.",
+      "loginFailed": "No se pudo verificar el codigo."
+    },
+    "loginTitle": "Autenticacion de dos factores",
+    "loginDescription": "Introduce el codigo de 6 digitos de tu app de autenticacion para terminar de iniciar sesion.",
+    "loginButton": "Verificar y continuar",
+    "loginRecoveryHint": "Perdiste tu dispositivo? Introduce uno de tus codigos de recuperacion."
   }
 }

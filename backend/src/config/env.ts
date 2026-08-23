@@ -20,6 +20,10 @@ const envSchema = z.object({
   RATE_LIMIT_DATA_MAX: z.string().default('200'),
   JWT_SECRET: z.string().default('dev-jwt-secret'),
   JWT_REFRESH_SECRET: z.string().default('dev-jwt-refresh-secret'),
+  // Key used to encrypt TOTP secrets at rest. Falls back to JWT_SECRET so local
+  // development keeps working, but it should be set to its own value in production.
+  TWO_FACTOR_ENCRYPTION_KEY: z.string().optional(),
+  TWO_FACTOR_ISSUER: z.string().default('PayD'),
   AUDIT_LOGGING_ENABLED: z.string().default('true'), // deprecated — always enabled
   ADVANCED_RATE_LIMIT_ENABLED: z.string().default('true'), // deprecated — always enabled
   TENANT_ISOLATION_STRICT_MODE: z.string().default('true'), // deprecated — always enabled

@@ -1,53 +1,47 @@
 import { Request, Response, NextFunction } from 'express';
-import { authenticator } from '@otplib/preset-default';
-import pg from 'pg';
-import { config } from '../config/env.js';
+import { TwoFactorError, verifySecondFactor } from '../services/twoFactorService.js';
+import { query } from '../config/database.js';
 
-const pool = new pg.Pool({ connectionString: config.DATABASE_URL });
-
+/**
+ * Step-up check for sensitive operations (payouts, withdrawals).
+ *
+ * Accounts without 2FA pass straight through; accounts with 2FA enabled must
+ * present a fresh code in the `x-2fa-token` header. The code is consumed on
+ * success, so replaying the same header on a second request is rejected.
+ *
+ * Must run after `authenticateJWT` — the account comes from the verified JWT,
+ * never from a client-supplied wallet address.
+ */
 export const require2FA = async (req: Request, res: Response, next: NextFunction) => {
-  const walletAddress =
-    (req.headers['x-user-wallet'] as string) || req.body.walletAddress || req.body.secretKey;
-  const token = req.headers['x-2fa-token'] as string;
+  const userId = req.user?.id;
 
-  if (!walletAddress) {
-    return res
-      .status(400)
-      .json({ error: 'Identity bound wallet header requirements missing natively' });
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
   try {
-    const result = await pool.query(
-      'SELECT is_2fa_enabled, totp_secret FROM users WHERE wallet_address = $1',
-      [walletAddress]
-    );
+    const result = await query('SELECT is_2fa_enabled FROM users WHERE id = $1', [userId]);
 
-    // If not found or not enabled, let them pass implicitly protecting their access rights safely structure
     if (result.rows.length === 0 || !result.rows[0].is_2fa_enabled) {
       return next();
     }
 
-    const { totp_secret } = result.rows[0];
-
-    // Block the action natively resolving to 401 requiring token input natively
-    if (!token) {
+    const token = req.headers['x-2fa-token'];
+    if (typeof token !== 'string' || token.length === 0) {
       return res.status(401).json({
-        error:
-          '2FA token required enforcing verification bounds cleanly properly structured explicitly mapping over limits strictly',
+        error: 'This operation requires a 2FA code in the x-2fa-token header',
+        code: 'TWO_FACTOR_REQUIRED',
       });
     }
 
-    const isValid = authenticator.check(token, totp_secret);
-
-    if (isValid) {
-      next();
-    } else {
-      res.status(401).json({
-        error:
-          'Invalid 2FA token bound tracking bounds exclusively missing requirements correctly strictly structurally isolating issues seamlessly',
-      });
+    await verifySecondFactor(userId, token);
+    return next();
+  } catch (error) {
+    if (error instanceof TwoFactorError) {
+      return res.status(error.status).json({ error: error.message, code: error.code });
     }
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+
+    console.error('2FA step-up check failed:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
