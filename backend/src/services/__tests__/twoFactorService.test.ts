@@ -74,6 +74,8 @@ function userRow(overrides: Record<string, any> = {}) {
     totp_pending_secret: null,
     two_factor_enabled_at: null,
     two_factor_locked_until: null,
+    // Computed by the database with the database's clock, never in JS.
+    is_locked: false,
     ...overrides,
   };
 }
@@ -325,9 +327,8 @@ describe('twoFactorService', () => {
       });
     });
 
-    it('locks out verification after repeated failures', async () => {
+    it('locks out verification while the account is in cool-off', async () => {
       const { encrypted } = await enrol();
-      const lockedUntil = new Date(Date.now() + 60_000);
 
       route([
         SELECT_USER,
@@ -336,7 +337,48 @@ describe('twoFactorService', () => {
             userRow({
               is_2fa_enabled: true,
               totp_secret: encrypted,
-              two_factor_locked_until: lockedUntil,
+              two_factor_locked_until: new Date(Date.now() + 60_000),
+              is_locked: true,
+            }),
+          ],
+          rowCount: 1,
+        }),
+      ]);
+
+      await expect(verifySecondFactor(42, '123456')).rejects.toMatchObject({
+        status: 429,
+        code: 'TWO_FACTOR_LOCKED',
+      });
+    });
+
+    it('asks the database whether the account is locked', async () => {
+      route([SELECT_USER, () => ({ rows: [userRow()], rowCount: 1 })]);
+
+      await expect(verifySecondFactor(42, '123456')).rejects.toBeInstanceOf(TwoFactorError);
+
+      // The lock decision has to be computed by Postgres against its own clock.
+      const select = sqlMatching(SELECT_USER)[0];
+      expect(select).toContain('two_factor_locked_until > NOW()');
+      expect(select).toContain('AS is_locked');
+    });
+
+    it('stays locked even when the stored timestamp reads as past locally', async () => {
+      // Regression: two_factor_locked_until used to be a bare TIMESTAMP, which
+      // node-pg parses as *local* time. On a server east of UTC the value came
+      // back in the past, so a JS-side comparison silently skipped the lockout
+      // and brute-force attempts sailed through. The column is TIMESTAMPTZ now,
+      // and the decision comes from the database either way.
+      const { encrypted } = await enrol();
+
+      route([
+        SELECT_USER,
+        () => ({
+          rows: [
+            userRow({
+              is_2fa_enabled: true,
+              totp_secret: encrypted,
+              two_factor_locked_until: new Date(Date.now() - 60 * 60_000),
+              is_locked: true,
             }),
           ],
           rowCount: 1,
@@ -388,6 +430,7 @@ describe('twoFactorService', () => {
                 is_2fa_enabled: true,
                 totp_secret: encrypted,
                 two_factor_locked_until: new Date(Date.now() - 60_000),
+                is_locked: false,
               }),
             ],
             rowCount: 1,

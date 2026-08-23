@@ -56,7 +56,7 @@ Disabling deliberately refuses recovery codes: a leaked recovery code should let
 - **Recovery codes are single-use hashes.** Codes live in `user_recovery_codes` as SHA-256 hashes and are redeemed by an `UPDATE … WHERE used_at IS NULL`, so a code cannot be redeemed twice even under concurrent requests.
 - **TOTP codes are single-use.** `users.totp_last_used_step` records the highest time step already spent; a code is accepted only when its step is strictly greater, which closes the replay window a code would otherwise have for the rest of its 30-second period.
 - **Clock drift.** One step (30 seconds) either side of the current one is accepted.
-- **Brute-force lockout.** Five consecutive failures lock verification for 15 minutes; a success clears the counter.
+- **Brute-force lockout.** Five consecutive failures lock verification for 15 minutes; a success clears the counter, and an expired lockout restarts the count rather than leaving the account one mistake from the next. Whether an account is currently locked is decided by Postgres (`two_factor_locked_until > NOW()`), never by comparing the timestamp in Node — `two_factor_locked_until` is `TIMESTAMPTZ` for the same reason. A bare `TIMESTAMP` comes back through node-pg parsed as local time, which on a server east of UTC lands in the past and silently disables the lockout entirely.
 - **Nothing sensitive is logged.** Secrets, recovery codes, and submitted codes never reach the logs, and failures are reported as a generic `INVALID_CODE` so they do not distinguish "wrong code" from "no such enrolment".
 
 ## Configuration
@@ -71,6 +71,6 @@ Disabling deliberately refuses recovery codes: a leaked recovery code should let
 Migration `029_admin_two_factor_auth.sql`:
 
 - widens the `users.role` CHECK constraint to include `ADMIN`;
-- adds `totp_pending_secret`, `two_factor_enabled_at`, `totp_last_used_step`, `two_factor_failed_attempts`, `two_factor_locked_until`;
+- adds `totp_pending_secret`, `two_factor_enabled_at`, `totp_last_used_step`, `two_factor_failed_attempts`, `two_factor_locked_until` (the timestamp columns are `TIMESTAMPTZ`, see the lockout note above);
 - creates `user_recovery_codes` and drops the plaintext `users.recovery_codes` array;
 - clears any pre-existing plaintext `totp_secret`, since those predate encryption at rest. Affected admins re-run setup from **Settings → Two-Factor Authentication**.

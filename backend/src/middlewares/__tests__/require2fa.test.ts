@@ -88,6 +88,7 @@ async function enrol(): Promise<{ secret: string; encrypted: string }> {
           totp_pending_secret: null,
           two_factor_enabled_at: null,
           two_factor_locked_until: null,
+          is_locked: false,
         },
       ],
       rowCount: 1,
@@ -116,6 +117,7 @@ function enabledUserRow(encrypted: string) {
     totp_pending_secret: null,
     two_factor_enabled_at: new Date(),
     two_factor_locked_until: null,
+    is_locked: false,
   };
 }
 

@@ -166,12 +166,22 @@ export function hashRecoveryCode(code: string): string {
 
 // ─── Lockout ─────────────────────────────────────────────────────────────────
 
-function assertNotLocked(lockedUntil: Date | string | null): void {
-  if (!lockedUntil) return;
-  const until = new Date(lockedUntil).getTime();
-  if (Number.isNaN(until) || until <= Date.now()) return;
+/**
+ * Rejects the request when the account is in its brute-force cool-off.
+ *
+ * The decision comes from `isLocked`, which the database computes with its own
+ * clock — never from comparing the timestamp here. A bare `TIMESTAMP` column
+ * comes back through node-pg parsed as local time, so on a server whose
+ * timezone is not UTC a JS-side comparison would put the lock in the past and
+ * silently let brute-force attempts through. The timestamp is used only to tell
+ * the caller how long is left.
+ */
+function assertNotLocked(isLocked: boolean, lockedUntil: Date | string | null): void {
+  if (!isLocked) return;
 
-  const seconds = Math.ceil((until - Date.now()) / 1000);
+  const remainingMs = lockedUntil ? new Date(lockedUntil).getTime() - Date.now() : 0;
+  const seconds = Math.max(1, Math.ceil(remainingMs / 1000));
+
   throw new TwoFactorError(
     `Too many failed 2FA attempts. Try again in ${seconds} seconds.`,
     429,
@@ -273,12 +283,16 @@ interface UserTwoFactorRow {
   totp_pending_secret: string | null;
   two_factor_enabled_at: Date | null;
   two_factor_locked_until: Date | null;
+  /** Computed by the database, using the database's clock. */
+  is_locked: boolean;
 }
 
 async function loadUser(userId: number): Promise<UserTwoFactorRow> {
   const result = await query(
     `SELECT id, wallet_address, email, role, is_2fa_enabled, totp_secret,
-            totp_pending_secret, two_factor_enabled_at, two_factor_locked_until
+            totp_pending_secret, two_factor_enabled_at, two_factor_locked_until,
+            (two_factor_locked_until IS NOT NULL AND two_factor_locked_until > NOW())
+              AS is_locked
        FROM users
       WHERE id = $1`,
     [userId]
@@ -360,7 +374,7 @@ export async function confirmSetup(userId: number, code: string): Promise<string
     throw new TwoFactorError('Start 2FA setup before verifying a code', 400, 'SETUP_NOT_STARTED');
   }
 
-  assertNotLocked(user.two_factor_locked_until);
+  assertNotLocked(user.is_locked, user.two_factor_locked_until);
 
   if (!isTotpCodeShaped(code)) {
     await recordFailure(userId);
@@ -413,7 +427,7 @@ export async function verifySecondFactor(
     throw new TwoFactorError('2FA is not enabled for this account', 400, 'NOT_ENABLED');
   }
 
-  assertNotLocked(user.two_factor_locked_until);
+  assertNotLocked(user.is_locked, user.two_factor_locked_until);
 
   if (typeof code !== 'string' || code.trim().length === 0) {
     await recordFailure(userId);
@@ -447,7 +461,7 @@ export async function disable(userId: number, code: string): Promise<void> {
     throw new TwoFactorError('2FA is not enabled for this account', 400, 'NOT_ENABLED');
   }
 
-  assertNotLocked(user.two_factor_locked_until);
+  assertNotLocked(user.is_locked, user.two_factor_locked_until);
 
   if (!isTotpCodeShaped(code)) {
     await recordFailure(userId);

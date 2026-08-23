@@ -20,14 +20,17 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_pending_secret TEXT;
 -- AES-256-GCM ciphertext, which needs more room than VARCHAR(255).
 ALTER TABLE users ALTER COLUMN totp_secret TYPE TEXT;
 
-ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled_at TIMESTAMP;
+-- TIMESTAMPTZ, not TIMESTAMP: node-pg parses a bare TIMESTAMP as *local* time,
+-- so on a server whose timezone is not UTC the value comes back shifted. For
+-- two_factor_locked_until that silently disables the brute-force lockout.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_enabled_at TIMESTAMPTZ;
 
 -- Highest TOTP time step already spent by this user. A code is accepted only
 -- when its step is strictly greater, which makes every code single-use.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_last_used_step BIGINT;
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_failed_attempts INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_locked_until TIMESTAMP;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS two_factor_locked_until TIMESTAMPTZ;
 
 -- Recovery codes move out of the plaintext users.recovery_codes array into
 -- their own table so each code can be hashed and individually invalidated.
@@ -35,8 +38,8 @@ CREATE TABLE IF NOT EXISTS user_recovery_codes (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   code_hash CHAR(64) NOT NULL,
-  used_at TIMESTAMP,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (user_id, code_hash)
 );
 

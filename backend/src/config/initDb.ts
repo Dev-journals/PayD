@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS users (
   totp_secret TEXT,
   totp_pending_secret TEXT,
   is_2fa_enabled BOOLEAN DEFAULT FALSE,
-  two_factor_enabled_at TIMESTAMP,
+  two_factor_enabled_at TIMESTAMPTZ,
   totp_last_used_step BIGINT,
   two_factor_failed_attempts INTEGER NOT NULL DEFAULT 0,
-  two_factor_locked_until TIMESTAMP,
+  two_factor_locked_until TIMESTAMPTZ,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS user_recovery_codes (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   code_hash CHAR(64) NOT NULL,
-  used_at TIMESTAMP,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (user_id, code_hash)
 );
 

@@ -57,6 +57,8 @@ function userRow(overrides: Record<string, any> = {}) {
     totp_pending_secret: null,
     two_factor_enabled_at: null,
     two_factor_locked_until: null,
+    // Computed by the database with the database's clock, never in JS.
+    is_locked: false,
     ...overrides,
   };
 }
@@ -456,6 +458,61 @@ describe('Auth 2FA endpoints', () => {
 
       expect(response.status).toBe(401);
       expect(mockQuery).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('OAuth callbacks', () => {
+    // Passport is mocked to pass straight through, so the callback handler runs
+    // with whatever req.user the strategy would have produced.
+    const asOAuthUser = (user: Record<string, any>) => {
+      const app = express();
+      app.use(express.json());
+      app.use((req, _res, next) => {
+        (req as any).user = user;
+        next();
+      });
+      app.use('/api/auth', authRoutes);
+      return app;
+    };
+
+    it('hands out a session when the account has no 2FA', async () => {
+      const response = await request(asOAuthUser(userRow())).get('/api/auth/google/callback');
+
+      expect(response.status).toBe(302);
+      const redirect = new URL(response.headers.location);
+      expect(redirect.pathname).toBe('/auth-callback');
+
+      const claims = jwt.verify(redirect.searchParams.get('token')!, config.JWT_SECRET) as any;
+      expect(claims.typ).toBe(TOKEN_TYPE_ACCESS);
+    });
+
+    it('cannot be used to bypass 2FA — issues a challenge instead of a session', async () => {
+      const response = await request(asOAuthUser(userRow({ is_2fa_enabled: true }))).get(
+        '/api/auth/google/callback'
+      );
+
+      expect(response.status).toBe(302);
+      const redirect = new URL(response.headers.location);
+      expect(redirect.searchParams.get('requires2fa')).toBe('1');
+      // No access token anywhere in the redirect.
+      expect(redirect.searchParams.get('token')).toBeNull();
+
+      const claims = jwt.verify(
+        redirect.searchParams.get('challengeToken')!,
+        config.JWT_SECRET
+      ) as any;
+      expect(claims.typ).toBe(TOKEN_TYPE_2FA_CHALLENGE);
+      expect(claims.role).toBeUndefined();
+    });
+
+    it('applies the same rule to the GitHub callback', async () => {
+      const response = await request(asOAuthUser(userRow({ is_2fa_enabled: true }))).get(
+        '/api/auth/github/callback'
+      );
+
+      expect(response.status).toBe(302);
+      expect(response.headers.location).toContain('requires2fa=1');
+      expect(response.headers.location).not.toContain('token=ey');
     });
   });
 
