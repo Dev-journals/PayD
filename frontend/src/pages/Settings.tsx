@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Webhook } from 'lucide-react';
+import { Webhook, ShieldCheck } from 'lucide-react';
 
 export default function Settings() {
   const { t, i18n } = useTranslation();
@@ -33,6 +33,21 @@ export default function Settings() {
           </select>
         </div>
       </div>
+
+      <Link
+        to="/settings/two-factor"
+        className="w-full card glass noise p-8 mt-8 flex items-center justify-between gap-4 hover:border-hi transition-all"
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl grid place-items-center bg-accent/10 text-accent">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="font-bold">{t('settings.twoFactorLabel')}</p>
+            <p className="text-sm text-muted">{t('settings.twoFactorDescription')}</p>
+          </div>
+        </div>
+      </Link>
 
       <Link
         to="/settings/webhooks"
