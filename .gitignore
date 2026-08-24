@@ -8,6 +8,9 @@ target
 # test snapshot folders from sample contracts
 test_snapshots
 
+# lockfile of the standalone vesting upgrade fixture (the built .wasm is committed)
+contracts/vesting_escrow/test_fixtures/upgraded_vesting/Cargo.lock
+
 # build output
 dist
 dist-ssr

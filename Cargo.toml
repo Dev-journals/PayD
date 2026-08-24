@@ -7,6 +7,10 @@ members = [
   "contracts/vesting_escrow",
   "contracts/hello_world",
 ]
+# Test-only upgrade target for vesting_escrow. It is built by hand into a
+# committed .wasm fixture and must not be picked up by scaffold builds or the
+# contract release workflow.
+exclude = ["contracts/vesting_escrow/test_fixtures/upgraded_vesting"]
 resolver = "2"
 
 [workspace.package]
