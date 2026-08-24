@@ -12,6 +12,7 @@ fn test_vesting_flow() {
     let funder = Address::generate(&e);
     let beneficiary = Address::generate(&e);
     let clawback_admin = Address::generate(&e);
+    let upgrade_admin = Address::generate(&e);
     let contract_id = e.register(VestingContract, ());
     let client = VestingContractClient::new(&e, &contract_id);
     
@@ -39,8 +40,9 @@ fn test_vesting_flow() {
         &duration_seconds,
         &amount,
         &clawback_admin,
+        &upgrade_admin,
     );
-    
+
     // Verify init state
     let config = client.get_config();
     assert_eq!(config.total_amount, amount);
@@ -112,3 +114,4 @@ fn test_vesting_flow() {
     assert_eq!(token_client.balance(&beneficiary), 2000 + 3000);
     assert_eq!(token_client.balance(&contract_id), 0);
 }
+
