@@ -1,6 +1,11 @@
 import { Redis } from 'ioredis';
 import { config } from '../config/env.js';
 import logger from '../utils/logger.js';
+import {
+  TenantRateLimitService,
+  getCircuitBreakerState,
+  recordRequestOutcome,
+} from './tenantRateLimitService.js';
 
 export interface RateLimitConfig {
   windowMs: number;
@@ -94,18 +99,50 @@ export class RateLimitService {
 
   async checkRateLimit(
     identifier: string,
-    tier: RateLimitTierName = 'api'
+    tier: RateLimitTierName = 'api',
+    organizationId?: number
   ): Promise<RateLimitResult> {
-    const tierConfig = RATE_LIMIT_TIERS[tier];
-    const key = `ratelimit:${tier}:${identifier}`;
-    const now = Date.now();
-    const windowStart = now - tierConfig.windowMs;
+    let tierConfig = RATE_LIMIT_TIERS[tier];
 
-    if (this.useMemoryFallback || !this.redis) {
-      return this.checkMemoryRateLimit(key, tierConfig, now);
+    // --- Per-tenant rate limit overrides ---
+    if (organizationId) {
+      try {
+        const tenantSvc = new TenantRateLimitService(this.redis);
+        const overrides = await tenantSvc.getOverrides(organizationId);
+        const override = overrides[tier];
+        if (override) {
+          tierConfig = { windowMs: override.windowMs, maxRequests: override.maxRequests };
+        }
+      } catch (err) {
+        logger.warn('Failed to fetch tenant rate limit overrides, using defaults', { err });
+      }
     }
 
-    return this.checkRedisRateLimit(key, tierConfig, now);
+    // --- Circuit breaker: halve the limit when the breaker is open ---
+    if (organizationId) {
+      const cb = await getCircuitBreakerState(organizationId, this.redis);
+      if (cb.open) {
+        tierConfig = {
+          ...tierConfig,
+          maxRequests: Math.max(1, Math.floor(tierConfig.maxRequests / 2)),
+        };
+        logger.warn('Circuit breaker OPEN — reduced rate limit applied', { organizationId, tier });
+      }
+    }
+
+    const key = `ratelimit:${tier}:${identifier}`;
+    const now = Date.now();
+
+    const result = this.useMemoryFallback || !this.redis
+      ? await this.checkMemoryRateLimit(key, tierConfig, now)
+      : await this.checkRedisRateLimit(key, tierConfig, now);
+
+    // Record outcome for circuit breaker telemetry
+    if (organizationId) {
+      await recordRequestOutcome(organizationId, !result.allowed, this.redis);
+    }
+
+    return result;
   }
 
   private async checkRedisRateLimit(

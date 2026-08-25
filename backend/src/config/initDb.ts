@@ -3,12 +3,34 @@ import pool from './database.js';
 const schema = `
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
-  email VARCHAR(255) UNIQUE NOT NULL,
+  wallet_address VARCHAR(56) UNIQUE,
+  email VARCHAR(255) UNIQUE,
   name VARCHAR(255),
-  role VARCHAR(50) DEFAULT 'EMPLOYEE',
+  organization_id INTEGER REFERENCES organizations(id) ON DELETE SET NULL,
+  role VARCHAR(20) DEFAULT 'EMPLOYEE' CHECK (role IN ('EMPLOYER', 'EMPLOYEE', 'ADMIN')),
+  refresh_token TEXT,
+  totp_secret TEXT,
+  totp_pending_secret TEXT,
+  is_2fa_enabled BOOLEAN DEFAULT FALSE,
+  two_factor_enabled_at TIMESTAMPTZ,
+  totp_last_used_step BIGINT,
+  two_factor_failed_attempts INTEGER NOT NULL DEFAULT 0,
+  two_factor_locked_until TIMESTAMPTZ,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS user_recovery_codes (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash CHAR(64) NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, code_hash)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_recovery_codes_user_id
+  ON user_recovery_codes(user_id);
 
 CREATE TABLE IF NOT EXISTS social_identities (
   id SERIAL PRIMARY KEY,
@@ -31,6 +53,4 @@ async function initDb() {
   }
 }
 
-if (require.main === module) {
-  initDb();
-}
+await initDb();

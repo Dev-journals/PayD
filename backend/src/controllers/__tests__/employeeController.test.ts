@@ -9,6 +9,24 @@ jest.mock('../../config/env', () => ({
   },
 }));
 
+jest.mock('../../middlewares/auth.js', () => ({
+  __esModule: true,
+  default: (req: any, _res: any, next: any) => {
+    req.user = { id: 1, organizationId: 1, role: 'EMPLOYER' };
+    next();
+  },
+  authenticateJWT: (req: any, _res: any, next: any) => {
+    req.user = { id: 1, organizationId: 1, role: 'EMPLOYER' };
+    next();
+  },
+}));
+
+jest.mock('../../middlewares/rbac.js', () => ({
+  __esModule: true,
+  authorizeRoles: () => (_req: any, _res: any, next: any) => next(),
+  isolateOrganization: (_req: any, _res: any, next: any) => next(),
+}));
+
 import employeeRoutes from '../../routes/employeeRoutes.js';
 import { employeeService } from '../../services/employeeService.js';
 
@@ -70,6 +88,7 @@ describe('EmployeeController', () => {
 
       expect(response.body).toEqual(mockResult);
       expect(employeeService.findAll).toHaveBeenCalledWith(
+        1,
         expect.objectContaining({
           page: 1,
           limit: 10,
@@ -86,7 +105,7 @@ describe('EmployeeController', () => {
       const response = await request(app).get('/api/employees/1').expect(200);
 
       expect(response.body).toEqual(mockEmployee);
-      expect(employeeService.findById).toHaveBeenCalledWith(1);
+      expect(employeeService.findById).toHaveBeenCalledWith(1, 1);
     });
 
     it('should return 404 if employee not found', async () => {
@@ -105,7 +124,11 @@ describe('EmployeeController', () => {
       const response = await request(app).patch('/api/employees/1').send(updateData).expect(200);
 
       expect(response.body).toEqual(mockUpdatedEmployee);
-      expect(employeeService.update).toHaveBeenCalledWith(1, expect.objectContaining(updateData));
+      expect(employeeService.update).toHaveBeenCalledWith(
+        1,
+        1,
+        expect.objectContaining(updateData)
+      );
     });
   });
 
@@ -115,7 +138,7 @@ describe('EmployeeController', () => {
 
       await request(app).delete('/api/employees/1').expect(204);
 
-      expect(employeeService.delete).toHaveBeenCalledWith(1);
+      expect(employeeService.delete).toHaveBeenCalledWith(1, 1);
     });
 
     it('should return 404 if employee not found', async () => {

@@ -1,18 +1,48 @@
 
-/home/idealz/Drips-Projects/PayD/frontend/src/components/ConnectAccount.tsx
-   6:11  error  Unsafe assignment of an error typed value              @typescript-eslint/no-unsafe-assignment
-   6:46  error  Unsafe call of a(n) `error` type typed value           @typescript-eslint/no-unsafe-call
-  28:30  error  Unsafe call of a(n) `error` type typed value           @typescript-eslint/no-unsafe-call
-  28:38  error  Unsafe member access .slice on an `error` typed value  @typescript-eslint/no-unsafe-member-access
-  28:54  error  Unsafe call of a(n) `error` type typed value           @typescript-eslint/no-unsafe-call
-  28:62  error  Unsafe member access .slice on an `error` typed value  @typescript-eslint/no-unsafe-member-access
-  34:43  error  Unsafe call of a(n) `error` type typed value           @typescript-eslint/no-unsafe-call
-  57:26  error  Unsafe call of a(n) `error` type typed value           @typescript-eslint/no-unsafe-call
-  69:14  error  Unsafe call of a(n) `error` type typed value           @typescript-eslint/no-unsafe-call
-  71:17  error  Unsafe assignment of an error typed value              @typescript-eslint/no-unsafe-assignment
-  77:12  error  Unsafe call of a(n) `error` type typed value           @typescript-eslint/no-unsafe-call
-  81:12  error  Unsafe call of a(n) `error` type typed value           @typescript-eslint/no-unsafe-call
-  82:47  error  Unsafe call of a(n) `error` type typed value           @typescript-eslint/no-unsafe-call
+> scaffold-stellar-frontend@0.0.1 lint
+> eslint .
 
-✖ 13 problems (13 errors, 0 warnings)
+
+/Users/inhousecodes/Documents/PayD/PayD/frontend/src/App.tsx
+   25:3   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+   44:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+   46:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+   61:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+   63:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+   78:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+   80:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+  118:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+  120:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+  135:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+  137:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+
+/Users/inhousecodes/Documents/PayD/PayD/frontend/src/pages/CrossAssetPayment.tsx
+   25:3  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment')
+  104:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment')
+  106:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call' or '@typescript-eslint/no-unsafe-member-access')
+  108:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call' or '@typescript-eslint/no-unsafe-member-access')
+  110:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call' or '@typescript-eslint/no-unsafe-member-access')
+  114:7  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call' or '@typescript-eslint/no-unsafe-member-access')
+  116:7  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call' or '@typescript-eslint/no-unsafe-member-access')
+  118:7  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call' or '@typescript-eslint/no-unsafe-member-access')
+
+/Users/inhousecodes/Documents/PayD/PayD/frontend/src/pages/PayrollScheduler.tsx
+   77:3   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+   81:3   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment')
+  198:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment')
+  200:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call' or '@typescript-eslint/no-unsafe-member-access')
+  204:7   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call' or '@typescript-eslint/no-unsafe-member-access')
+  316:14  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call')
+  318:14  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call')
+  327:14  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call')
+  406:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+  419:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+  432:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+  438:20  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call')
+  440:20  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call')
+  449:19  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment' or '@typescript-eslint/no-unsafe-call')
+  469:25  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-call')
+
+✖ 34 problems (0 errors, 34 warnings)
+  0 errors and 34 warnings potentially fixable with the `--fix` option.
 

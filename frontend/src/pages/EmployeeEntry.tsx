@@ -67,7 +67,23 @@ export default function EmployeeEntry() {
   );
   const { t } = useTranslation();
 
-  const fetchEmployees = async () => {
+  interface EmployeeApiResponse {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string;
+    position?: string;
+    job_title?: string;
+    wallet_address?: string;
+    status: string;
+  }
+
+  interface EmployeesApiResponse {
+    data: EmployeeApiResponse[];
+    pagination?: unknown;
+  }
+
+  const fetchEmployees = useCallback(async () => {
     try {
       setLoading(true);
       const response = await api.get<{ data: BackendEmployee[] }>('/employees');
@@ -76,17 +92,17 @@ export default function EmployeeEntry() {
         id: String(emp.id),
         name: `${emp.first_name} ${emp.last_name}`,
         email: emp.email,
-        position: emp.position || emp.job_title || 'Employee',
+        position: emp.position ?? emp.job_title ?? 'Employee',
         wallet: emp.wallet_address,
-        status: emp.status === 'active' ? 'Active' : 'Inactive',
+        status: emp.status === 'active' ? ('Active' as const) : ('Inactive' as const),
       }));
       setEmployees(mapped);
-    } catch (error) {
-      console.error('Failed to fetch employees:', error);
+    } catch (err) {
+      console.error('Failed to fetch employees:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void fetchEmployees();
@@ -108,9 +124,8 @@ export default function EmployeeEntry() {
     setFormData((prev: EmployeeFormState) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
-
     let generatedWallet: { publicKey: string; secretKey: string } | undefined;
     if (!formData.walletAddress) {
       generatedWallet = generateWallet();
@@ -147,7 +162,7 @@ export default function EmployeeEntry() {
           generatedWallet ? 'A wallet was created for them.' : ''
         }`,
         secretKey: generatedWallet?.secretKey,
-        walletAddress: walletAddress,
+        walletAddress,
         employeeName: formData.fullName,
       });
 

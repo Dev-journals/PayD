@@ -149,3 +149,17 @@ export const requireTenantContext = [extractTenantId, validateTenant, setTenantC
  * Use for routes that handle tenant context manually
  */
 export const requireTenantId = [extractTenantId, validateTenant];
+
+/**
+ * Sync tenant ID from authenticated JWT user.
+ * Sets req.tenantId from req.user.organizationId when no explicit
+ * tenant has been extracted from URL params or headers yet.
+ * Must run AFTER authentication middleware.
+ */
+export const syncTenantFromUser = (req: Request, _res: Response, next: NextFunction): void => {
+  if (!req.tenantId && req.user?.organizationId) {
+    req.tenantId = req.user.organizationId;
+    req.organizationId = req.user.organizationId;
+  }
+  next();
+};

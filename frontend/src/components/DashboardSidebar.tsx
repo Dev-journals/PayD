@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   Layout,
   TrendingUp,
+  Receipt,
 } from 'lucide-react';
 
 interface NavItem {
@@ -26,6 +27,7 @@ const navItems: NavItem[] = [
   { icon: Users, label: 'Employees', path: '/employee' },
   { icon: TrendingUp, label: 'Forecast', path: '/forecast' },
   { icon: FileText, label: 'Reports', path: '/reports' },
+  { icon: Receipt, label: 'Tax Compliance', path: '/tax-compliance' },
   { icon: Globe, label: 'Cross-Asset', path: '/cross-asset-payment' },
   { icon: History, label: 'History', path: '/transactions' },
   { icon: Layout, label: 'Employee Portal', path: '/portal' },

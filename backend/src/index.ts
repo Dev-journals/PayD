@@ -7,10 +7,17 @@ import { initializeSocket } from './services/socketService.js';
 import { scheduleExecutor } from './services/scheduleExecutor.js';
 import { contractEventIndexer } from './services/contractEventIndexer.js';
 import { liquidityAlertChecker } from './services/forecasting/liquidityAlertChecker.js';
+import { scheduleDailyUsageSnapshots, scheduleNightlyIntegrityCheck } from './jobs/part49Jobs.js';
+import { auditAnalyticsService } from './services/auditAnalyticsService.js';
+import { cleanupExpired as cleanupExpiredIdempotencyKeys } from './services/idempotencyService.js';
 
 dotenv.config();
 
 const server = createServer(app);
+
+// Part-49 job handles — assigned on server start, cleaned up on shutdown
+let usageSnapshotJob: { stop(): void };
+let integrityCheckJob: { stop(): void };
 
 // Initialize Socket.IO
 initializeSocket(server);
@@ -33,6 +40,41 @@ server.listen(PORT, () => {
   // Initialize ContractEventIndexer
   contractEventIndexer.initialize();
   logger.info('ContractEventIndexer initialized');
+
+  // Part 49 — daily quota snapshots + nightly audit-chain integrity
+  // (leader-elected via Postgres advisory lock; cron at midnight UTC)
+  usageSnapshotJob = scheduleDailyUsageSnapshots();
+  integrityCheckJob = scheduleNightlyIntegrityCheck();
+  logger.info('Part-49 jobs scheduled (usage snapshots + audit integrity)');
+
+  // Part 45 — cleanup expired audit cache every hour
+  setInterval(
+    async () => {
+      try {
+        const deleted = await auditAnalyticsService.cleanupExpiredCache();
+        if (deleted > 0) {
+          logger.info(`Cleaned up ${deleted} expired audit cache entries`);
+        }
+      } catch (error) {
+        logger.error('Failed to cleanup audit cache', { error });
+      }
+    },
+    60 * 60 * 1000
+  ); // Every hour
+  logger.info('Part-45 audit cache cleanup scheduled');
+
+  // Idempotency key cleanup — every hour, remove expired keys
+  setInterval(
+    async () => {
+      try {
+        await cleanupExpiredIdempotencyKeys();
+      } catch (error) {
+        logger.error('Failed to cleanup expired idempotency keys', { error });
+      }
+    },
+    60 * 60 * 1000
+  );
+  logger.info('Idempotency key cleanup scheduled');
 });
 
 // Graceful shutdown handling
@@ -43,6 +85,10 @@ const shutdown = () => {
   scheduleExecutor.stop();
 
   liquidityAlertChecker.stop();
+
+  // Stop Part-49 cron jobs
+  usageSnapshotJob?.stop();
+  integrityCheckJob?.stop();
 
   // Stop the contract event indexer
   contractEventIndexer.stop();

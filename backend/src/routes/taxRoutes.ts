@@ -1,7 +1,15 @@
 import { Router } from 'express';
 import { TaxController } from '../controllers/taxController.js';
+import { authenticateJWT } from '../middlewares/auth.js';
+import { syncTenantFromUser } from '../middleware/tenantContext.js';
+import { strictTenantBoundary, logTenantAccess } from '../middleware/enhancedTenantIsolation.js';
 
 const router = Router();
+
+router.use(authenticateJWT);
+router.use(syncTenantFromUser);
+router.use(strictTenantBoundary);
+router.use(logTenantAccess);
 
 // Tax rule CRUD
 router.post('/rules', TaxController.createRule);

@@ -12,6 +12,7 @@ import {
   Award,
   Receipt,
   AlertCircle,
+  ArrowDownRight,
 } from 'lucide-react';
 import { useEmployeePortal, EmployeeTransaction } from '../hooks/useEmployeePortal';
 import { useContractError } from '../hooks/useContractError';
@@ -85,6 +86,7 @@ const EmployeePortal: React.FC = () => {
   const {
     transactions,
     balance,
+    deductionsDraft,
     isLoading,
     error,
     selectedCurrency,
@@ -100,6 +102,8 @@ const EmployeePortal: React.FC = () => {
     searchQuery,
     setSearchQuery,
   } = useEmployeePortal();
+
+  const [showWithdrawal, setShowWithdrawal] = useState(false);
 
   const currencies = getSupportedCurrencies();
 
@@ -228,6 +232,10 @@ const EmployeePortal: React.FC = () => {
     }
   };
 
+  const handleWithdrawalSuccess = () => {
+    void refreshData();
+  };
+
   return (
     <div className="page-fade flex flex-col gap-6 max-w-[1200px] mx-auto w-full">
       {/* ── Page Header ─────────────── */}
@@ -240,6 +248,96 @@ const EmployeePortal: React.FC = () => {
             View your salary payments, balances, and transaction history
           </p>
         </div>
+
+        {/* ── Deductions Breakdown ─────── */}
+        {deductionsDraft && (
+          <div className={styles.txSection}>
+            <div className={styles.txHeader}>
+              <h2 className={styles.txTitle}>Deductions Breakdown</h2>
+            </div>
+
+            <div className={styles.statsRow}>
+              <div className={styles.statCard}>
+                <div className={styles.statLabel}>Gross Pay</div>
+                <div className={styles.statValue}>
+                  {formatCurrency(deductionsDraft.gross_amount, 'USD')}
+                </div>
+              </div>
+
+              <div className={styles.statCard}>
+                <div className={styles.statLabel}>Total Deductions</div>
+                <div className={styles.statValue}>
+                  {formatCurrency(deductionsDraft.total_deductions, 'USD')}
+                </div>
+              </div>
+
+              <div className={styles.statCard}>
+                <div className={styles.statLabel}>Net Pay</div>
+                <div className={styles.statValue}>
+                  {formatCurrency(deductionsDraft.net_amount, 'USD')}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div
+                className={styles.txRow}
+                style={{
+                  borderBottom: '1px solid var(--border-hi)',
+                  padding: '10px 24px',
+                }}
+              >
+                <span className={styles.statLabel}>Deduction</span>
+                <span className={styles.statLabel}>Type</span>
+                <span className={styles.statLabel}>Amount</span>
+                <span className={`${styles.statLabel} hidden md:block`}>Destination</span>
+                <span className={`${styles.statLabel} hidden md:block`}>Wallet</span>
+                <span className={styles.statLabel} />
+              </div>
+
+              {deductionsDraft.lines.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <Receipt className={styles.emptyIcon} />
+                  <p className={styles.emptyTitle}>No deductions configured</p>
+                  <p className={styles.emptyDesc}>Your net pay equals your gross pay for now.</p>
+                </div>
+              ) : (
+                deductionsDraft.lines.map((line) => (
+                  <div key={`${line.source}-${line.source_id}`} className={styles.txRow}>
+                    <div>
+                      <div className={styles.txDate}>{line.name}</div>
+                      <div className={styles.txDateSub}>{line.source}</div>
+                    </div>
+
+                    <div>
+                      <span className={styles.txMemo}>{line.type}</span>
+                    </div>
+
+                    <div>
+                      <div className={styles.txAmount}>-{formatCurrency(line.amount, 'USD')}</div>
+                    </div>
+
+                    <div className="hidden md:block">
+                      <div className={styles.txHash}>{line.destination_kind}</div>
+                    </div>
+
+                    <div className="hidden md:block">
+                      <div className={styles.txHash}>
+                        {line.destination_wallet_address
+                          ? `${line.destination_wallet_address.substring(0, 8)}…${line.destination_wallet_address.substring(
+                              line.destination_wallet_address.length - 6
+                            )}`
+                          : '—'}
+                      </div>
+                    </div>
+
+                    <div />
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
         {address && (
           <a
             href={getStellarExpertAccountLink(address)}
@@ -312,6 +410,26 @@ const EmployeePortal: React.FC = () => {
           </div>
           <div className={styles.statValue}>{formatCurrency(totalReceived, 'USD')}</div>
           <div className={styles.statLabel}>Total Received</div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div
+            className={styles.statIcon}
+            style={{
+              background: 'rgba(255, 123, 114, 0.1)',
+              border: '1px solid rgba(255, 123, 114, 0.2)',
+            }}
+          >
+            <ArrowDownRight className="w-4 h-4 text-[var(--danger)]" />
+          </div>
+          <button
+            onClick={() => setShowWithdrawal(true)}
+            className="w-full text-left"
+            disabled={!balance?.orgUsd || balance.orgUsd <= 0}
+          >
+            <div className={styles.statValue}>Cash Out</div>
+            <div className={styles.statLabel}>Withdraw to Local Currency</div>
+          </button>
         </div>
 
         <div className={styles.statCard}>
@@ -659,6 +777,17 @@ const EmployeePortal: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* ── Withdrawal Flow Modal ────── */}
+      {showWithdrawal && balance && (
+        <WithdrawalFlow
+          balance={balance.orgUsd}
+          exchangeRate={balance.exchangeRate}
+          selectedCurrency={selectedCurrency}
+          onClose={() => setShowWithdrawal(false)}
+          onSuccess={handleWithdrawalSuccess}
+        />
+      )}
     </div>
   );
 };

@@ -198,4 +198,26 @@ export class TenantConfigService {
   }
 }
 
+  // ─── Rate limit overrides (Part 49) ─────────────────────────────────────────
+
+  /**
+   * Return the stored rate limit override config for this organisation.
+   * Returns an empty object if none has been set (caller should fall back to global defaults).
+   */
+  async getRateLimitOverrides(organizationId: number): Promise<Record<string, { windowMs: number; maxRequests: number }>> {
+    const val = await this.getConfig(organizationId, 'rate_limit_overrides');
+    return val ?? {};
+  }
+
+  /**
+   * Persist rate limit overrides for a specific tier (or all tiers at once).
+   */
+  async setRateLimitOverrides(
+    organizationId: number,
+    overrides: Record<string, { windowMs: number; maxRequests: number }>
+  ): Promise<TenantConfig> {
+    return this.setConfig(organizationId, 'rate_limit_overrides', overrides);
+  }
+}
+
 export default new TenantConfigService();

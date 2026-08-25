@@ -9,6 +9,8 @@ import HelpCenter from './pages/HelpCenter';
 import ErrorBoundary from './components/ErrorBoundary';
 import ErrorFallback from './components/ErrorFallback';
 import Settings from './pages/Settings';
+import WebhookSettings from './pages/WebhookSettings';
+import TwoFactorSettings from './pages/TwoFactorSettings';
 import CustomReportBuilder from './pages/CustomReportBuilder';
 import CrossAssetPayment from './pages/CrossAssetPayment';
 import TransactionHistory from './pages/TransactionHistory';
@@ -148,6 +150,22 @@ function App() {
           }
         />
         <Route
+          path="/settings/webhooks"
+          element={
+            <ErrorBoundary fallback={<ErrorFallback onReset={() => {}} />}>
+              <WebhookSettings />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/settings/two-factor"
+          element={
+            <ErrorBoundary fallback={<ErrorFallback onReset={() => {}} />}>
+              <TwoFactorSettings />
+            </ErrorBoundary>
+          }
+        />
+        <Route
           path="/help"
           element={
             <ErrorBoundary fallback={<ErrorFallback onReset={() => { }} />}>
@@ -176,6 +194,14 @@ function App() {
           element={
             <ErrorBoundary fallback={<ErrorFallback onReset={() => { }} />}>
               <BulkPaymentTracker />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="/tax-compliance"
+          element={
+            <ErrorBoundary fallback={<ErrorFallback onReset={() => {}} />}>
+              <TaxComplianceWizard />
             </ErrorBoundary>
           }
         />

@@ -5,9 +5,15 @@ import { StellarService } from './stellarService.js';
 import { scheduleService } from './scheduleService.js';
 import type { Schedule, ExecutionResult, PaymentRecipient } from '../types/schedule.js';
 import { Operation, Asset, Memo, Keypair } from '@stellar/stellar-sdk';
+import os from 'node:os';
 
 export class ScheduleExecutor {
   private cronJob: ScheduledTask | null = null;
+  private readonly podId: string;
+
+  constructor() {
+    this.podId = `${os.hostname()}-${process.pid}`;
+  }
 
   /**
    * Initialize the cron job to run every minute
@@ -38,15 +44,33 @@ export class ScheduleExecutor {
   }
 
   /**
-   * Query database for due schedules and execute each one
-   * Handles errors in isolation so one failure doesn't block others
+   * Claim due schedules atomically using FOR UPDATE SKIP LOCKED.
+   * Each row is marked with the claiming pod's ID so concurrent pods
+   * skip already-claimed rows instead of executing them twice.
    */
   async processDueSchedules(): Promise<void> {
+    // Reclaim rows from crashed pods before attempting our own claim
+    await this.releaseStaleClaims();
+
     const client = await pool.connect();
     try {
-      // Query for schedules where next_run_timestamp <= NOW() AND status = 'active'
-      const query = `
-        SELECT 
+      await client.query('BEGIN');
+
+      // Claim due schedules atomically: SELECT … FOR UPDATE SKIP LOCKED
+      // locks the rows this pod claims; other pods skip them.
+      const claimQuery = `
+        UPDATE schedules
+        SET locked_by = $1, locked_at = NOW()
+        WHERE id IN (
+          SELECT id
+          FROM schedules
+          WHERE next_run_timestamp <= (NOW() AT TIME ZONE 'UTC')
+            AND status = 'active'
+            AND locked_by IS NULL
+          ORDER BY next_run_timestamp ASC
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING
           id,
           organization_id as "organizationId",
           user_id as "userId",
@@ -61,25 +85,22 @@ export class ScheduleExecutor {
           status,
           created_at as "createdAt",
           updated_at as "updatedAt"
-        FROM schedules
-        WHERE next_run_timestamp <= (NOW() AT TIME ZONE 'UTC') AND status = 'active'
-        ORDER BY next_run_timestamp ASC
       `;
 
-      const result = await client.query(query);
-      const dueSchedules = result.rows;
+      const result = await client.query(claimQuery, [this.podId]);
+      await client.query('COMMIT');
 
-      if (dueSchedules.length > 0) {
-        console.log(`[ScheduleExecutor] Found ${dueSchedules.length} due schedule(s)`);
+      const claimedSchedules = result.rows;
+
+      if (claimedSchedules.length > 0) {
+        console.log(`[ScheduleExecutor] Claimed ${claimedSchedules.length} due schedule(s)`);
       }
 
       let successCount = 0;
       let failureCount = 0;
 
-      // Process each schedule in isolation
-      for (const scheduleRow of dueSchedules) {
+      for (const scheduleRow of claimedSchedules) {
         try {
-          // Parse dates and JSON from database
           const schedule: Schedule = {
             ...scheduleRow,
             startDate: new Date(scheduleRow.startDate),
@@ -92,16 +113,10 @@ export class ScheduleExecutor {
             updatedAt: new Date(scheduleRow.updatedAt),
           };
 
-          // Idempotency check: Ensure we haven't already processed this exact run
-          // We can check if last_run_timestamp is very close to now AND next_run_timestamp hasn't updated yet
-          // But a better way is to rely on the transaction in recordExecution which updates the status/nextRun
-
           console.log(`[ScheduleExecutor] Executing schedule ID ${schedule.id} (Scheduled for: ${schedule.nextRunTimestamp.toISOString()})`);
 
-          // Execute the schedule
           const executionResult = await this.executeSchedule(schedule);
 
-          // Record the execution (this updates next_run_timestamp or status)
           await this.recordExecution(schedule.id, executionResult);
 
           if (executionResult.success) {
@@ -121,7 +136,6 @@ export class ScheduleExecutor {
             error
           );
 
-          // Record the system error as a failure
           try {
             await this.recordExecution(scheduleRow.id, {
               success: false,
@@ -136,16 +150,56 @@ export class ScheduleExecutor {
               recordError
             );
           }
+        } finally {
+          // Always release the claim so the row is available for the next cycle
+          await this.releaseClaim(scheduleRow.id);
         }
       }
 
-      if (dueSchedules.length > 0) {
+      if (claimedSchedules.length > 0) {
         console.log(
           `[ScheduleExecutor] Execution complete - Success: ${successCount}, Failed: ${failureCount}`
         );
       }
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw error;
     } finally {
       client.release();
+    }
+  }
+
+  /**
+   * Release the row-level claim after execution (success or failure).
+   */
+  private async releaseClaim(scheduleId: number): Promise<void> {
+    try {
+      await pool.query(
+        'UPDATE schedules SET locked_by = NULL, locked_at = NULL WHERE id = $1',
+        [scheduleId]
+      );
+    } catch (error) {
+      console.error(`[ScheduleExecutor] Failed to release claim for schedule ID ${scheduleId}:`, error);
+    }
+  }
+
+  /**
+   * Release stale claims held by crashed pods (locked_at older than 5 minutes).
+   * Called once per cron cycle before claiming new schedules.
+   */
+  private async releaseStaleClaims(): Promise<void> {
+    try {
+      const result = await pool.query(
+        `UPDATE schedules
+         SET locked_by = NULL, locked_at = NULL
+         WHERE locked_by IS NOT NULL
+           AND locked_at < NOW() - INTERVAL '5 minutes'`
+      );
+      if (result.rowCount && result.rowCount > 0) {
+        console.log(`[ScheduleExecutor] Released ${result.rowCount} stale claim(s)`);
+      }
+    } catch (error) {
+      console.error('[ScheduleExecutor] Failed to release stale claims:', error);
     }
   }
 
@@ -281,6 +335,12 @@ export class ScheduleExecutor {
 
       // Update schedule state using ScheduleService
       await scheduleService.updateAfterExecution(scheduleId, result);
+
+      // Clear the lock now that execution is recorded
+      await client.query(
+        'UPDATE schedules SET locked_by = NULL, locked_at = NULL WHERE id = $1',
+        [scheduleId]
+      );
 
       await client.query('COMMIT');
     } catch (error) {

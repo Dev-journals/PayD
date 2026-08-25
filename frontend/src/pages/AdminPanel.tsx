@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Code2,
+  RotateCcw,
 } from 'lucide-react';
 import { useNotification } from '../hooks/useNotification';
 import { useWallet } from '../hooks/useWallet';
@@ -53,7 +54,18 @@ interface LogsApiResponse {
   total: number;
 }
 
-type ActiveTab = 'account' | 'global' | 'status' | 'logs' | 'contracts';
+interface ClawbackLog {
+  id: number;
+  transaction_hash: string;
+  asset_code: string;
+  amount: string;
+  from_account: string;
+  issuer_account: string;
+  reason: string | null;
+  created_at: string;
+}
+
+type ActiveTab = 'account' | 'global' | 'status' | 'logs' | 'contracts' | 'clawback';
 
 // ---------------------------------------------------------------------------
 // Style constants – defined once to avoid repetition
@@ -71,6 +83,7 @@ const TAB_LABELS: Record<ActiveTab, string> = {
   status: 'Status Check',
   logs: 'Audit Logs',
   contracts: 'Contract Upgrades',
+  clawback: 'Clawback',
 };
 
 export default function AdminPanel() {
@@ -105,12 +118,30 @@ export default function AdminPanel() {
   const [logsPage, setLogsPage] = useState(1);
   const [logsLoading, setLogsLoading] = useState(false);
 
+  // Clawback
+  const [clawbackTarget, setClawbackTarget] = useState('');
+  const [clawbackAmount, setClawbackAmount] = useState('');
+  const [clawbackSecret, setClawbackSecret] = useState('');
+  const [clawbackReason, setClawbackReason] = useState('');
+  const [clawbackLoading, setClawbackLoading] = useState(false);
+  const [clawbackLogs, setClawbackLogs] = useState<ClawbackLog[]>([]);
+  const [clawbackLogsTotal, setClawbackLogsTotal] = useState(0);
+  const [clawbackLogsPage, setClawbackLogsPage] = useState(1);
+  const [clawbackLogsLoading, setClawbackLogsLoading] = useState(false);
+
   useEffect(() => {
     if (activeTab === 'logs') {
       void loadLogs(logsPage);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, logsPage]);
+
+  useEffect(() => {
+    if (activeTab === 'clawback') {
+      void loadClawbackLogs(clawbackLogsPage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, clawbackLogsPage]);
 
   // -----------------------------------------------------------------------
   // Data fetchers
@@ -129,6 +160,28 @@ export default function AdminPanel() {
       notifyError('Fetch Error', 'Failed to load audit logs.');
     } finally {
       setLogsLoading(false);
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Clawback log fetcher
+  // -----------------------------------------------------------------------
+
+  async function loadClawbackLogs(page: number) {
+    setClawbackLogsLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/assets/clawback/logs?page=${page}&limit=${LOGS_PER_PAGE}`
+      );
+      const data = (await res.json()) as { success: boolean; data: ClawbackLog[]; total: number };
+      if (data.success) {
+        setClawbackLogs(data.data);
+        setClawbackLogsTotal(data.total);
+      }
+    } catch {
+      notifyError('Fetch Error', 'Failed to load clawback logs.');
+    } finally {
+      setClawbackLogsLoading(false);
     }
   }
 
@@ -221,11 +274,51 @@ export default function AdminPanel() {
     }
   }
 
+  async function handleClawback() {
+    if (!clawbackTarget || !clawbackAmount || !clawbackSecret) {
+      notifyError('Missing fields', 'Target account, amount, and issuer secret are required.');
+      return;
+    }
+    const parsed = parseFloat(clawbackAmount);
+    if (isNaN(parsed) || parsed <= 0) {
+      notifyError('Invalid amount', 'Amount must be a positive number.');
+      return;
+    }
+    setClawbackLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/assets/clawback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          issuerSecret: clawbackSecret,
+          fromAccount: clawbackTarget,
+          amount: clawbackAmount,
+          reason: clawbackReason || undefined,
+        }),
+      });
+      const data = (await res.json()) as { success: boolean; txHash?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Clawback failed');
+      notifySuccess('Clawback Submitted', `Tx: ${data.txHash?.slice(0, 16)}…`);
+      setClawbackTarget('');
+      setClawbackAmount('');
+      setClawbackSecret('');
+      setClawbackReason('');
+      // Refresh logs
+      void loadClawbackLogs(1);
+      setClawbackLogsPage(1);
+    } catch (err: unknown) {
+      notifyError('Clawback Failed', err instanceof Error ? err.message : 'Clawback failed');
+    } finally {
+      setClawbackLoading(false);
+    }
+  }
+
   // -----------------------------------------------------------------------
   // Helpers
   // -----------------------------------------------------------------------
 
   const totalPages = Math.max(1, Math.ceil(logsTotal / LOGS_PER_PAGE));
+  const clawbackTotalPages = Math.max(1, Math.ceil(clawbackLogsTotal / LOGS_PER_PAGE));
 
   function tabClass(tab: ActiveTab) {
     return activeTab === tab
@@ -682,6 +775,242 @@ export default function AdminPanel() {
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Clawback ─────────────────────────────────────────────── */}
+        {activeTab === 'clawback' && (
+          <div className="flex flex-col gap-6">
+            {/* ── Clawback Form ── */}
+            <div className="flex flex-col gap-4 sm:gap-6 max-w-2xl">
+              <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+                <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" /> Stellar Asset
+                Clawback
+              </h2>
+              <div className="bg-orange-500/10 border border-orange-500/30 p-3 sm:p-4 rounded-xl text-orange-300 text-xs sm:text-sm">
+                <strong>Irreversible:</strong> Clawback burns the specified amount from the target
+                account. Use only for compliance or error-correction. Requires{' '}
+                <code className="bg-black/20 px-1 rounded">auth_clawback_enabled</code> on the
+                issuer account.
+              </div>
+
+              <div className="grid gap-4">
+                <div>
+                  <label className={LABEL_CLASS}>Target Account (Public Key)</label>
+                  <input
+                    id="clawback-target-account"
+                    type="text"
+                    value={clawbackTarget}
+                    onChange={(e) => setClawbackTarget(e.target.value.trim())}
+                    className={INPUT_CLASS}
+                    placeholder="G..."
+                    spellCheck={false}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={LABEL_CLASS}>Amount (ORGUSD)</label>
+                    <input
+                      id="clawback-amount"
+                      type="number"
+                      min="0.0000001"
+                      step="0.0000001"
+                      value={clawbackAmount}
+                      onChange={(e) => setClawbackAmount(e.target.value)}
+                      className={INPUT_CLASS}
+                      placeholder="0.0000000"
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLASS}>Issuer Secret Key</label>
+                    <input
+                      id="clawback-issuer-secret"
+                      type="password"
+                      value={clawbackSecret}
+                      onChange={(e) => setClawbackSecret(e.target.value.trim())}
+                      className={INPUT_CLASS}
+                      placeholder="S..."
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={LABEL_CLASS}>Reason (Compliance Audit Log)</label>
+                  <input
+                    id="clawback-reason"
+                    type="text"
+                    value={clawbackReason}
+                    onChange={(e) => setClawbackReason(e.target.value)}
+                    className={INPUT_CLASS}
+                    placeholder="e.g. Funds sent to incorrect address"
+                    maxLength={500}
+                  />
+                </div>
+              </div>
+
+              <button
+                id="clawback-submit-btn"
+                disabled={clawbackLoading}
+                onClick={() => void handleClawback()}
+                className="w-full sm:w-auto py-3 sm:py-4 px-8 bg-orange-500/20 text-orange-400 border border-orange-500/50 font-black rounded-xl hover:bg-orange-500 hover:text-white transition-all shadow-lg uppercase tracking-widest text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[44px]"
+              >
+                {clawbackLoading ? 'Submitting…' : 'Execute Clawback'}
+              </button>
+            </div>
+
+            {/* ── Clawback Audit Log ── */}
+            <div className="flex flex-col gap-4 border-t border-hi pt-6">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                <h3 className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-accent" /> Clawback History
+                </h3>
+                <div className="flex items-center gap-3">
+                  {clawbackLogsTotal > 0 && (
+                    <span className="text-xs text-muted">
+                      {(clawbackLogsPage - 1) * LOGS_PER_PAGE + 1}–
+                      {Math.min(clawbackLogsPage * LOGS_PER_PAGE, clawbackLogsTotal)} of{' '}
+                      {clawbackLogsTotal}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => void loadClawbackLogs(clawbackLogsPage)}
+                    disabled={clawbackLogsLoading}
+                    className="text-xs bg-black/20 px-3 py-2 rounded border border-hi hover:bg-black/40 disabled:opacity-50 touch-manipulation min-h-[44px]"
+                  >
+                    {clawbackLogsLoading ? 'Loading…' : 'Refresh'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto w-full">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b border-hi text-muted uppercase tracking-wider text-[10px]">
+                      <th className="p-3">Time</th>
+                      <th className="p-3">From Account</th>
+                      <th className="p-3">Asset</th>
+                      <th className="p-3">Amount</th>
+                      <th className="p-3">Tx Hash</th>
+                      <th className="p-3">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clawbackLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-8 text-center text-muted">
+                          {clawbackLogsLoading ? 'Loading…' : 'No clawback records found.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      clawbackLogs.map((log: ClawbackLog) => (
+                        <tr
+                          key={log.id}
+                          className="border-b border-hi/50 hover:bg-white/5 transition-colors"
+                        >
+                          <td className="p-3 text-xs font-mono">
+                            {new Date(log.created_at).toLocaleString()}
+                          </td>
+                          <td className="p-3 text-xs font-mono" title={log.from_account}>
+                            {log.from_account.slice(0, 8)}…{log.from_account.slice(-4)}
+                          </td>
+                          <td className="p-3 text-xs font-bold">{log.asset_code}</td>
+                          <td className="p-3 text-xs font-mono text-orange-400">{log.amount}</td>
+                          <td className="p-3 text-xs font-mono" title={log.transaction_hash}>
+                            {log.transaction_hash.slice(0, 10)}…
+                          </td>
+                          <td
+                            className="p-3 text-xs text-muted max-w-[180px] truncate"
+                            title={log.reason || ''}
+                          >
+                            {log.reason || '—'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Cards */}
+              <div className="md:hidden space-y-3">
+                {clawbackLogs.length === 0 ? (
+                  <div className="p-8 text-center text-muted text-sm">
+                    {clawbackLogsLoading ? 'Loading…' : 'No clawback records found.'}
+                  </div>
+                ) : (
+                  clawbackLogs.map((log: ClawbackLog) => (
+                    <div
+                      key={log.id}
+                      className="border border-hi/50 rounded-lg p-4 bg-black/5 space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-mono text-muted mb-1">
+                            {new Date(log.created_at).toLocaleString()}
+                          </div>
+                          <div className="text-xs font-mono break-all">{log.from_account}</div>
+                        </div>
+                        <span className="px-2 py-1 rounded text-[10px] uppercase font-bold tracking-widest bg-orange-500/20 text-orange-400 flex-shrink-0">
+                          Clawback
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-muted">Asset:</span>
+                          <span className="ml-1 font-bold">{log.asset_code}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted">Amount:</span>
+                          <span className="ml-1 font-mono text-orange-400">{log.amount}</span>
+                        </div>
+                      </div>
+                      <div
+                        className="text-xs font-mono text-muted break-all"
+                        title={log.transaction_hash}
+                      >
+                        Tx: {log.transaction_hash.slice(0, 16)}…
+                      </div>
+                      {log.reason && (
+                        <div className="text-xs">
+                          <span className="text-muted">Reason:</span>
+                          <div className="mt-1 text-text break-words">{log.reason}</div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Pagination */}
+              {clawbackTotalPages > 1 && (
+                <div className="flex items-center justify-center gap-3 sm:gap-4 pt-2">
+                  <button
+                    onClick={() => setClawbackLogsPage((p: number) => Math.max(1, p - 1))}
+                    disabled={clawbackLogsPage === 1 || clawbackLogsLoading}
+                    className="flex items-center gap-1 px-4 py-2.5 text-xs border border-hi rounded hover:bg-black/20 disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation min-h-[44px]"
+                  >
+                    <ChevronLeft className="w-4 h-4" />{' '}
+                    <span className="hidden sm:inline">Previous</span>
+                  </button>
+                  <span className="text-xs text-muted px-2">
+                    Page {clawbackLogsPage} of {clawbackTotalPages}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setClawbackLogsPage((p: number) => Math.min(clawbackTotalPages, p + 1))
+                    }
+                    disabled={clawbackLogsPage === clawbackTotalPages || clawbackLogsLoading}
+                    className="flex items-center gap-1 px-4 py-2.5 text-xs border border-hi rounded hover:bg-black/20 disabled:opacity-40 disabled:cursor-not-allowed touch-manipulation min-h-[44px]"
+                  >
+                    <span className="hidden sm:inline">Next</span>{' '}
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

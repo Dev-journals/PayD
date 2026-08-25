@@ -1,0 +1,25 @@
+# Standalone crate: deliberately NOT a member of the repo workspace so that
+# `stellar-scaffold build` and the contract release workflow ignore it. It only
+# exists to produce the fixture WASM that `vesting_escrow`'s upgrade tests
+# upgrade *to*. See ../README.md for how to rebuild it.
+[workspace]
+
+[package]
+name = "upgraded_vesting"
+version = "0.0.1"
+edition = "2024"
+publish = false
+
+[dependencies]
+soroban-sdk = "23.4.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+overflow-checks = true
+strip = "symbols"

@@ -1,9 +1,9 @@
-export type UserRole = 'EMPLOYER' | 'EMPLOYEE';
+export type UserRole = 'EMPLOYER' | 'EMPLOYEE' | 'ADMIN';
 
 export interface JWTPayload {
   id: number;
-  walletAddress: string;
-  email: string;
+  walletAddress?: string | null;
+  email?: string | null;
   organizationId: number | null;
   role: UserRole;
 }

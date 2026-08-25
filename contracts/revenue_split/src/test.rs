@@ -32,7 +32,8 @@ fn test_distribution_invalid_amount_returns_error() {
     let sender = Address::generate(&env);
     stellar_asset_client.mint(&sender, &1000);
 
-    assert!(contract_client.try_distribute(&token_id, &sender, &0).is_err());
+    let assets = Vec::from_array(&env, [(token_id.clone(), 0i128)]);
+    assert!(contract_client.try_distribute(&sender, &assets).is_err());
     assert_eq!(token_client.balance(&sender), 1000);
 }
 
@@ -154,13 +155,63 @@ fn test_distribution() {
     stellar_asset_client.mint(&sender, &1000);
 
     // Distribute 1000 tokens
-    contract_client.distribute(&token_id, &sender, &1000);
+    let assets = Vec::from_array(&env, [(token_id.clone(), 1000i128)]);
+    contract_client.distribute(&sender, &assets);
 
     // Verify balances
     assert_eq!(token_client.balance(&sender), 0);
     assert_eq!(token_client.balance(&recipient1), 500);
     assert_eq!(token_client.balance(&recipient2), 300);
     assert_eq!(token_client.balance(&recipient3), 200);
+}
+
+#[test]
+fn test_distribution_multiple_assets() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    // Create tokens
+    let token_admin = Address::generate(&env);
+    let (token_id1, stellar_asset_client1, token_client1) = create_token_contract(&env, &token_admin);
+    let (token_id2, stellar_asset_client2, token_client2) = create_token_contract(&env, &token_admin);
+
+    // Setup revenue split contract
+    let contract_id = env.register(RevenueSplitContract, ());
+    let contract_client = RevenueSplitContractClient::new(&env, &contract_id);
+
+    let admin = Address::generate(&env);
+    let recipient1 = Address::generate(&env);
+    let recipient2 = Address::generate(&env);
+
+    // 60%, 40%
+    let shares = Vec::from_array(&env, [
+        RecipientShare { destination: recipient1.clone(), basis_points: 6000 },
+        RecipientShare { destination: recipient2.clone(), basis_points: 4000 },
+    ]);
+
+    contract_client.init(&admin, &shares);
+
+    // Fund a sender
+    let sender = Address::generate(&env);
+    stellar_asset_client1.mint(&sender, &1000);
+    stellar_asset_client2.mint(&sender, &2000);
+
+    // Distribute multiple assets
+    let assets = Vec::from_array(&env, [
+        (token_id1.clone(), 1000i128),
+        (token_id2.clone(), 2000i128)
+    ]);
+    contract_client.distribute(&sender, &assets);
+
+    // Verify balances token 1
+    assert_eq!(token_client1.balance(&sender), 0);
+    assert_eq!(token_client1.balance(&recipient1), 600);
+    assert_eq!(token_client1.balance(&recipient2), 400);
+
+    // Verify balances token 2
+    assert_eq!(token_client2.balance(&sender), 0);
+    assert_eq!(token_client2.balance(&recipient1), 1200);
+    assert_eq!(token_client2.balance(&recipient2), 800);
 }
 
 #[test]
