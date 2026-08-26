@@ -473,9 +473,9 @@ const EmployeePortal: React.FC = () => {
           <div className={styles.statValue}>
             {lastPayment
               ? new Date(lastPayment.date).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-              })
+                  month: 'short',
+                  day: 'numeric',
+                })
               : '—'}
           </div>
           <div className={styles.statLabel}>Last Payment</div>

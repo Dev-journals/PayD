@@ -6,7 +6,6 @@ export const HORIZON_URL = 'https://horizon-testnet.stellar.org';
 export const USDC_ISSUER = 'GBBD67VFB9X7Z5D5C68A6E3F7D2B6C4A5S6D7F8G9H0J1K2L3M4N5O6P';
 export const EURC_ISSUER = 'GDIHU6DHPR6N3H37N6Z6VHUY4FALN6Y7G8H9J0K1L2M3N4O5P6Q7R8S';
 
-
 export interface ClaimableBalanceDetails {
   id: string;
   source: string;
@@ -44,12 +43,13 @@ export const checkTrustline = async (
       }
       throw new Error(`Failed to fetch account: ${response.statusText}`);
     }
-    const accountData = (await response.json()) as { balances: Array<{ asset_code?: string; asset_issuer?: string }> };
+    const accountData = (await response.json()) as {
+      balances: Array<{ asset_code?: string; asset_issuer?: string }>;
+    };
 
     return accountData.balances.some(
       (balance) =>
-        balance.asset_code === assetCode &&
-        (!assetIssuer || balance.asset_issuer === assetIssuer)
+        balance.asset_code === assetCode && (!assetIssuer || balance.asset_issuer === assetIssuer)
     );
   } catch (error) {
     console.error('Error checking trustline:', error);

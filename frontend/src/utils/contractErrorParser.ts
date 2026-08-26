@@ -1,4 +1,4 @@
-import { ScVal } from '@stellar/stellar-sdk';
+import { xdr } from '@stellar/stellar-sdk';
 
 export interface ContractErrorDetails {
   code: string;
@@ -87,8 +87,7 @@ export function parseContractError(resultXdr: string): ContractErrorDetails {
 
   try {
     // 1. Attempt to parse as ScVal (standard for Soroban sim results)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const scVal = ScVal.fromXDR(resultXdr, 'base64');
+    const scVal = xdr.ScVal.fromXDR(resultXdr, 'base64');
 
     // ScVal.switch() returns the enum value for the type
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
