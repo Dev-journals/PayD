@@ -1,4 +1,4 @@
-import React, { ChangeEvent } from 'react';
+import React, { ChangeEvent, useState } from 'react';
 import {
   ArrowUpRight,
   RefreshCw,
@@ -33,6 +33,7 @@ import {
   USDC_ISSUER,
   EURC_ISSUER,
 } from '../services/stellar';
+import WithdrawalFlow from '../components/WithdrawalFlow';
 
 /* ── Helper: status badge ────────── */
 function StatusBadge({ status }: { status: EmployeeTransaction['status'] }) {

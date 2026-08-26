@@ -22,6 +22,7 @@ import Login from './pages/Login';
 import AuthCallback from './pages/AuthCallback';
 import { useTranslation } from 'react-i18next';
 import { contractService } from './services/contracts';
+import TaxComplianceWizard from './pages/TaxComplianceWizard';
 
 function App() {
   const { t } = useTranslation();

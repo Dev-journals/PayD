@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   BarChart2,
+  TrendingUp,
 } from 'lucide-react';
 import { Avatar } from './Avatar';
 
